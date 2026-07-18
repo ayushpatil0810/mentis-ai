@@ -9,6 +9,9 @@ const envSchema = z.object({
   GITHUB_CLIENT_ID: z.string().min(1, "GITHUB_CLIENT_ID is missing"),
   GITHUB_CLIENT_SECRET: z.string().min(1, "GITHUB_CLIENT_SECRET is missing"),
   OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is missing"),
+  ENCRYPTION_KEY: z.string().min(32, "ENCRYPTION_KEY must be at least 32 characters long"),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
