@@ -1,7 +1,12 @@
-import { useState, useRef, useEffect } from "react";
+import {
+  PromptInput,
+  PromptInputAction,
+  PromptInputActions,
+  PromptInputTextarea,
+} from "../ui/prompt-input";
 import { Button } from "../ui/button";
-import { Send, Square } from "iconoir-react";
-import { Textarea } from "../ui/textarea";
+import { ArrowUp01Icon, StopIcon } from "hugeicons-react";
+import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
   value: string;
@@ -10,66 +15,58 @@ interface ChatInputProps {
   isLoading: boolean;
   onStop: () => void;
   placeholder?: string;
+  className?: string;
 }
 
-export function ChatInput({ value, onChange, onSubmit, isLoading, onStop, placeholder }: ChatInputProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
-    }
-  }, [value]);
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      if (!isLoading && value.trim()) {
-        onSubmit();
-      }
-    }
-  };
+export function ChatInput({ value, onChange, onSubmit, isLoading, onStop, placeholder, className }: ChatInputProps) {
+  const isExpanded = value.includes("\n") || value.length > 60;
 
   return (
-    <div className="relative w-full rounded-2xl bg-muted/50 p-2 shadow-sm border focus-within:ring-1 focus-within:ring-primary/20">
-      <Textarea
-        ref={textareaRef}
+    <div className={cn("relative w-full", className)}>
+      <PromptInput
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder || "Type a message..."}
-        className="min-h-[44px] max-h-[200px] w-full resize-none border-0 bg-transparent py-3 px-4 focus-visible:ring-0 shadow-none text-base"
-        rows={1}
-      />
-      <div className="absolute right-3 bottom-3 flex items-center justify-end">
-        {isLoading ? (
-          <Button
-            size="icon"
-            variant="secondary"
-            className="h-8 w-8 rounded-full"
-            onClick={(e) => {
-              e.preventDefault();
-              onStop();
-            }}
+        onValueChange={onChange}
+        isLoading={isLoading}
+        onSubmit={onSubmit}
+        className="w-full relative px-2 py-1"
+      >
+        <PromptInputTextarea 
+          placeholder={placeholder || "Message Mentis..."} 
+          className={cn("px-4 py-2.5 text-[15px]", !isExpanded && "pr-12")} 
+        />
+        <PromptInputActions className={cn("justify-end", isExpanded ? "pt-2 pb-1 pr-2" : "absolute right-3 bottom-2.5")}>
+          <PromptInputAction
+            tooltip={isLoading ? "Stop generation" : "Send message"}
           >
-            <Square className="h-4 w-4" />
-          </Button>
-        ) : (
-          <Button 
-            size="icon" 
-            variant={value.trim() ? "default" : "secondary"} 
-            className="h-8 w-8 rounded-full" 
-            disabled={!value.trim()}
-            onClick={(e) => {
-              e.preventDefault();
-              if (value.trim()) onSubmit();
-            }}
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
+            {isLoading ? (
+              <Button
+                variant="default"
+                size="icon"
+                className="h-8 w-8 rounded-full"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onStop();
+                }}
+              >
+                <StopIcon className="size-5 fill-current" />
+              </Button>
+            ) : (
+              <Button
+                variant="default"
+                size="icon"
+                className="h-8 w-8 rounded-full transition-all duration-200"
+                disabled={!value.trim()}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (value.trim()) onSubmit();
+                }}
+              >
+                <ArrowUp01Icon className="size-5" />
+              </Button>
+            )}
+          </PromptInputAction>
+        </PromptInputActions>
+      </PromptInput>
     </div>
   );
 }

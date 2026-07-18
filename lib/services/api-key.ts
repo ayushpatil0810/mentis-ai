@@ -45,6 +45,7 @@ export async function getApiKeyMetadata(userId: string, provider: string) {
   const [key] = await db.select({
     id: apiKey.id,
     provider: apiKey.provider,
+    isEnabled: apiKey.isEnabled,
     createdAt: apiKey.createdAt,
     updatedAt: apiKey.updatedAt,
   })
@@ -60,6 +61,7 @@ export async function getApiKeys(userId: string) {
   return await db.select({
     id: apiKey.id,
     provider: apiKey.provider,
+    isEnabled: apiKey.isEnabled,
     createdAt: apiKey.createdAt,
     updatedAt: apiKey.updatedAt,
   })
@@ -93,4 +95,17 @@ export async function deleteApiKey(userId: string, provider: string) {
   if (!deleted) throw new NotFoundError("API Key not found");
   
   return deleted;
+}
+
+export async function toggleApiKey(userId: string, provider: string, isEnabled: boolean) {
+  if (!userId) throw new UnauthorizedError();
+  
+  const [updated] = await db.update(apiKey)
+    .set({ isEnabled })
+    .where(and(eq(apiKey.userId, userId), eq(apiKey.provider, provider)))
+    .returning({ id: apiKey.id, provider: apiKey.provider, isEnabled: apiKey.isEnabled });
+    
+  if (!updated) throw new NotFoundError("API Key not found");
+  
+  return updated;
 }

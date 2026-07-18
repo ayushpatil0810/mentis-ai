@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uniqueIndex, boolean } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 
 export const apiKey = pgTable(
@@ -10,6 +10,7 @@ export const apiKey = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     provider: text("provider").notNull(), // 'openai', 'anthropic', 'gemini'
     encryptedKey: text("encrypted_key").notNull(),
+    isEnabled: boolean("is_enabled").default(true).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

@@ -6,7 +6,7 @@ import { getProvider } from "@/lib/ai/providers";
 export async function POST(req: Request) {
   try {
     const { user } = await requireAuth();
-    const { chatId, messages } = await req.json();
+    const { chatId, messages, modelId } = await req.json();
 
     if (!chatId) {
       return new Response("Missing chatId", { status: 400 });
@@ -43,14 +43,30 @@ export async function POST(req: Request) {
       content: msg.content,
     }));
 
-    // 4. Resolve the correct provider. For now we use openai, but this should be configurable.
-    // In the future we can pass a model parameter, e.g., 'openai/gpt-4o' or 'gemini/gemini-pro'.
-    // Let's assume default provider is openai for now.
-    const provider = await getProvider(user.id, "openai");
+    // 4. Resolve the correct provider and model based on modelId
+    // modelId format: "provider/model" (e.g. "openai/gpt-4o-mini", "default/gpt-4o-mini")
+    
+    let targetProviderName = "openai";
+    let targetModelName = "gpt-4o-mini";
+    
+    if (modelId && typeof modelId === "string") {
+      const parts = modelId.split("/");
+      if (parts.length >= 2) {
+        targetProviderName = parts[0];
+        targetModelName = parts.slice(1).join("/"); // join back in case model name has slashes
+      }
+    }
+    
+    // If it's default fallback, we just use openai configured with the env var
+    if (targetProviderName === "default") {
+      targetProviderName = "openai";
+    }
+
+    const provider = await getProvider(user.id, targetProviderName);
 
     // 5. Stream the AI response
     const result = streamText({
-      model: provider("gpt-4o-mini"), // We use a fallback model, can be dynamic
+      model: provider(targetModelName),
       messages: coreMessages,
       onFinish: async (event) => {
         // 6. Persist the complete assistant response only after streaming successfully completes.
