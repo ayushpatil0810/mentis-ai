@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import { Copy01Icon, ThumbsUpIcon, ThumbsDownIcon } from "hugeicons-react";
 import { toast } from "sonner";
 import { MessageRenderer } from "./message-renderer";
 import { cn } from "@/lib/utils";
 
-export function MessageItem({ message }: { message: any }) {
+export const MessageItem = memo(function MessageItem({ message }: { message: any }) {
   const isUser = message.role === "user";
   const textContent = message.content || 
     (message.parts && Array.isArray(message.parts) ? message.parts.map((p: any) => p.text || "").join("") : "") || 
@@ -75,4 +75,4 @@ export function MessageItem({ message }: { message: any }) {
       </div>
     </div>
   );
-}
+});

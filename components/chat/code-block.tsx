@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, memo } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { atomDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Copy01Icon, CheckmarkBadge01Icon } from "hugeicons-react";
 import { cn } from "@/lib/utils";
 
-export function CodeBlock({
+export const CodeBlock = memo(function CodeBlock({
   language,
   value,
   className,
@@ -64,4 +64,4 @@ export function CodeBlock({
       </div>
     </div>
   );
-}
+});

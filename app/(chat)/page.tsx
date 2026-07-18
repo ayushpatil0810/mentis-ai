@@ -21,10 +21,13 @@ export default function NewChatPage() {
 
   const createChatMutation = useMutation({
     mutationFn: async (messageContent: string) => {
-      const chat = await createChatAction({ title: "New Chat" });
+      const response = await createChatAction({ title: "New Chat" });
+      if (!response.success) {
+        throw new Error(response.error);
+      }
       sessionStorage.setItem("initial_message", messageContent);
       sessionStorage.setItem("mentis_selected_model", selectedModel);
-      return chat;
+      return response.data;
     },
     onSuccess: (chat) => {
       router.push(`/chat/${chat.id}`);

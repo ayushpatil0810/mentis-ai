@@ -4,19 +4,29 @@ import * as messageService from "@/lib/services/message";
 import { getProvider } from "@/lib/ai/providers";
 import { logger } from "@/lib/utils/logger";
 import { rateLimit } from "@/lib/rate-limit";
+import { z } from "zod";
+
+const chatPayloadSchema = z.object({
+  chatId: z.string().min(1),
+  modelId: z.string().optional(),
+  messages: z.array(z.any()).min(1), // Allow AI SDK message structure
+});
 
 export async function POST(req: Request) {
   try {
+    const rawBody = await req.json();
+    const parseResult = chatPayloadSchema.safeParse(rawBody);
+
+    if (!parseResult.success) {
+      return new Response("Invalid request payload", { status: 400 });
+    }
+
+    const { chatId, messages, modelId } = parseResult.data;
+
     const { user } = await requireAuth();
     
     // Apply rate limit for AI generation (e.g., 20 messages per minute)
     await rateLimit(`chat:${user.id}`, 20, 60000);
-
-    const { chatId, messages, modelId } = await req.json();
-
-    if (!chatId) {
-      return new Response("Missing chatId", { status: 400 });
-    }
 
     // `messages` from the client will contain the entire history, but we only trust our database.
     // We just extract the latest user message from the incoming array.

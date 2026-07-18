@@ -17,11 +17,13 @@ export function ChatWindow({ chatId }: { chatId: string }) {
   const [selectedModel, setSelectedModel] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
-  const { data: dbMessages, isLoading: isFetching } = useQuery({
+  const { data: response, isLoading: isFetching } = useQuery({
     queryKey: ["messages", chatId],
     queryFn: () => getMessagesAction(chatId),
     staleTime: Infinity, // Messages don't change unless we update them
   });
+
+  const dbMessages = response?.success ? response.data : undefined;
 
   const { messages, sendMessage, status, stop, setMessages } = useChat({
     transport: new TextStreamChatTransport({

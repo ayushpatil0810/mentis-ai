@@ -29,9 +29,7 @@ class Logger {
       return `${msg}\n${payload.error.stack || payload.error}`;
     }
     
-    const extra: any = { ...payload };
-    delete extra.message;
-    delete extra.context;
+    const { message, context, error, ...extra } = payload;
     
     if (Object.keys(extra).length > 0) {
       return `${msg} ${JSON.stringify(extra)}`;

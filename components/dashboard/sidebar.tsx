@@ -50,19 +50,29 @@ export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesk
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const { data: chats = [], isLoading } = useQuery({
+  const { data: response, isLoading } = useQuery({
     queryKey: ["chats"],
     queryFn: () => getChatsAction(),
     staleTime: 60000, // 1 minute
   });
 
+  const chats = response?.success ? response.data : [];
+
   const updateChatMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string, data: any }) => updateChatAction(id, data),
+    mutationFn: async ({ id, data }: { id: string, data: any }) => {
+      const res = await updateChatAction(id, data);
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["chats"] }),
   });
 
   const deleteChatMutation = useMutation({
-    mutationFn: (id: string) => deleteChatAction(id),
+    mutationFn: async (id: string) => {
+      const res = await deleteChatAction(id);
+      if (!res.success) throw new Error(res.error);
+      return res.data;
+    },
     onSuccess: (_, deletedId) => {
       queryClient.invalidateQueries({ queryKey: ["chats"] });
       if (pathname === `/chat/${deletedId}`) {
