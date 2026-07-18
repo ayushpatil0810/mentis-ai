@@ -3,7 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { getAvailableModelsAction } from "@/app/actions/models";
 import { useEffect } from "react";
-import { SparklesIcon, BrainIcon, Message02Icon, AiNetworkIcon, CheckmarkBadge01Icon } from "hugeicons-react";
+import Image from "next/image";
+import { SparklesIcon, CheckmarkBadge01Icon } from "hugeicons-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,11 +41,31 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
 
   if (!models || models.length === 0) return null;
 
-  const getIcon = (providerId: string) => {
-    if (providerId === "anthropic") return <BrainIcon className="w-4 h-4" />;
-    if (providerId === "openai") return <AiNetworkIcon className="w-4 h-4" />;
-    if (providerId === "gemini") return <Message02Icon className="w-4 h-4" />;
-    return <SparklesIcon className="w-4 h-4" />;
+  const getIcon = (providerId: string, name: string) => {
+    if (providerId === "anthropic") {
+      return (
+        <div className="relative w-4 h-4">
+          <Image src="/provider-brand/anthropic-light.svg" alt={name} fill className="object-contain block dark:hidden" />
+          <Image src="/provider-brand/anthropic-dark.svg" alt={name} fill className="object-contain hidden dark:block" />
+        </div>
+      );
+    }
+    if (providerId === "openai") {
+      return (
+        <div className="relative w-4 h-4">
+          <Image src="/provider-brand/openai-light.svg" alt={name} fill className="object-contain block dark:hidden" />
+          <Image src="/provider-brand/openai-dark.svg" alt={name} fill className="object-contain hidden dark:block" />
+        </div>
+      );
+    }
+    if (providerId === "gemini") {
+      return (
+        <div className="relative w-4 h-4">
+          <Image src="/provider-brand/gemini.svg" alt={name} fill className="object-contain" />
+        </div>
+      );
+    }
+    return <SparklesIcon className="w-4 h-4 opacity-60" />;
   };
 
   const getProviderName = (providerId: string) => {
@@ -63,21 +84,19 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
   }, {} as Record<string, typeof models>);
 
   const selectedModel = models.find(m => m.id === value);
-  const SelectedIcon = selectedModel ? getIcon(selectedModel.providerId) : <SparklesIcon className="w-4 h-4" />;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button 
           variant="ghost" 
-          size="icon" 
-          className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+          className="h-8 px-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-[13px] font-medium tracking-tight"
           title={selectedModel ? `Model: ${selectedModel.name}` : "Select Model"}
         >
-          {SelectedIcon}
+          {selectedModel ? selectedModel.name : "Select Model"}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[240px] p-1.5 rounded-xl border-border/50 shadow-xl bg-background/95 backdrop-blur-md">
+      <DropdownMenuContent align="end" className="w-[240px] p-1.5 rounded-2xl border-border/50 shadow-xl bg-background/95 backdrop-blur-md">
         {Object.entries(groupedModels).map(([provider, providerModels], idx) => (
           <DropdownMenuGroup key={provider}>
             <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground/70 px-2 py-1.5">
@@ -90,11 +109,11 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
                   onChange(model.id);
                   localStorage.setItem("mentis_selected_model", model.id);
                 }}
-                className="flex items-center justify-between px-2 py-2 cursor-pointer rounded-lg text-[13px] hover:bg-muted focus:bg-muted"
+                className="flex items-center justify-between px-2 py-2 cursor-pointer rounded-xl text-[13px] hover:bg-muted focus:bg-muted"
               >
-                <div className="flex items-center gap-2 truncate">
-                  <div className="w-5 flex items-center justify-center opacity-60">
-                    {getIcon(model.providerId)}
+                <div className="flex items-center gap-2.5 truncate">
+                  <div className="flex items-center justify-center">
+                    {getIcon(model.providerId, provider)}
                   </div>
                   <span className="truncate">{model.name}</span>
                 </div>

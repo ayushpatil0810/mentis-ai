@@ -67,7 +67,7 @@ export default function NewChatPage() {
             
             <div className="text-center space-y-2">
               <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
-                How can I help you today?
+                Ready to burn some tokens?
               </h1>
               <p className="text-muted-foreground text-[15px]">
                 Select a model and start a conversation.
@@ -83,7 +83,7 @@ export default function NewChatPage() {
                 onSubmit={() => handleSubmit(content)}
                 isLoading={createChatMutation.isPending}
                 onStop={() => {}}
-                placeholder="Message Mentis..."
+                placeholder="Ask Anything"
                 modelSelector={<ModelSelector value={selectedModel} onChange={setSelectedModel} />}
               />
             </div>
