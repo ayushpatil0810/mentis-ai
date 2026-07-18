@@ -6,7 +6,22 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getChatsAction, deleteChatAction, updateChatAction } from "@/app/actions/chat";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { ThemeToggle } from "../ui/theme-toggle";
+import { SettingsModal } from "@/components/settings/settings-modal";
+import { 
+  MoreHorizontalIcon, 
+  PinIcon, 
+  ArchiveIcon, 
+  Delete02Icon, 
+  Edit02Icon,  
+  Search01Icon,
+  Message01Icon,
+  Settings01Icon,
+  BrainIcon,
+  SidebarLeft01Icon
+} from "hugeicons-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,46 +29,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarSeparator,
-  SidebarTrigger,
-  useSidebar,
-} from "@/components/ui/sidebar";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
-import { ThemeToggle } from "../ui/theme-toggle";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-// Hugeicons-react icons (assuming standard names)
-import { 
-  MoreHorizontalIcon, 
-  PinIcon, 
-  ArchiveIcon, 
-  Delete02Icon, 
-  Edit02Icon,  
-  ArrowDown01Icon,
-  SidebarRightIcon,
-  SidebarLeftIcon
-} from "hugeicons-react";
-import { SettingsModal } from "@/components/settings/settings-modal";
-import { authClient } from "@/lib/auth/auth-client";
+interface SidebarProps {
+  isMobileMenuOpen: boolean;
+  setIsMobileMenuOpen: (val: boolean) => void;
+  isDesktopCollapsed?: boolean;
+  setIsDesktopCollapsed?: (val: boolean) => void;
+}
 
-export function DashboardSidebar() {
+export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesktopCollapsed = false, setIsDesktopCollapsed }: SidebarProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { toggleSidebar } = useSidebar();
 
   const { data: chats = [], isLoading } = useQuery({
     queryKey: ["chats"],
@@ -78,7 +66,6 @@ export function DashboardSidebar() {
 
   const pinnedChats = chats.filter((c: any) => c.isPinned && !c.isArchived);
   const recentChats = chats.filter((c: any) => !c.isPinned && !c.isArchived);
-  const archivedChats = chats.filter((c: any) => c.isArchived);
 
   const handleRename = (chat: any) => {
     const newTitle = window.prompt("Enter new title:", chat.title);
@@ -90,180 +77,170 @@ export function DashboardSidebar() {
   const renderSection = (title: string, list: any[]) => {
     if (list.length === 0) return null;
     return (
-      <SidebarGroup key={title} className="p-0 mb-4 group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel className="h-8 px-4 text-[11px] font-semibold text-muted-foreground/60 tracking-widest uppercase">
+      <div className={cn("mb-6 transition-opacity duration-200", isDesktopCollapsed ? "opacity-0 hidden" : "opacity-100")}>
+        <h3 className="px-4 text-xs font-medium text-muted-foreground/60 mb-2 tracking-wide">
           {title}
-        </SidebarGroupLabel>
-        <SidebarGroupContent>
-          <SidebarMenu className="gap-0.5 px-2">
-            {list.map((chat) => (
-              <SidebarMenuItem key={chat.id}>
-                <div className="flex items-center group w-full">
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === `/chat/${chat.id}`}
-                    tooltip={chat.title}
-                    className={cn(
-                      'h-8 flex-1 gap-3 rounded-md px-3 text-[13px] transition-colors',
-                      pathname === `/chat/${chat.id}`
-                        ? 'bg-muted/50 text-foreground font-medium'
-                        : 'text-muted-foreground hover:bg-muted/30 hover:text-foreground font-normal',
-                    )}
-                  >
-                    <Link href={`/chat/${chat.id}`}>
-                      <span className="truncate">{chat.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                  
+        </h3>
+        <div className="flex flex-col gap-0.5 px-2">
+          {list.map((chat) => {
+            const isActive = pathname === `/chat/${chat.id}`;
+            return (
+              <div key={chat.id} className="group relative flex items-center w-full">
+                <Link 
+                  href={`/chat/${chat.id}`}
+                  className={cn(
+                    "flex-1 flex items-center gap-2.5 h-8 px-2.5 rounded-lg text-[13px] transition-all duration-200 select-none",
+                    isActive 
+                      ? "bg-accent text-accent-foreground font-medium shadow-[0_1px_2px_rgba(0,0,0,0.02)]" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/40 font-normal"
+                  )}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Message01Icon className="w-3.5 h-3.5 shrink-0 opacity-60" />
+                  <span className="truncate flex-1">{chat.title}</span>
+                </Link>
+                
+                <div className={cn(
+                  "absolute right-2 flex items-center",
+                  isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"
+                )}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity ml-1 hover:bg-muted/50">
-                        <MoreHorizontalIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                      </Button>
+                      <button className="h-6 w-6 flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground transition-colors">
+                        <MoreHorizontalIcon className="h-3.5 w-3.5" />
+                      </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="border-border shadow-sm rounded-lg min-w-[160px]">
-                      <DropdownMenuItem onClick={() => handleRename(chat)} className="text-[13px] cursor-pointer">
-                        <Edit02Icon className="mr-2 h-3.5 w-3.5 opacity-70" /> Rename
+                    <DropdownMenuContent align="start" side="right" className="min-w-[160px] p-1 rounded-xl shadow-lg border-border/50">
+                      <DropdownMenuItem onClick={() => handleRename(chat)} className="rounded-lg text-[13px] py-1.5 cursor-pointer">
+                        <Edit02Icon className="mr-2 h-3.5 w-3.5 opacity-60" /> Rename
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => updateChatMutation.mutate({ id: chat.id, data: { isPinned: !chat.isPinned } })} className="text-[13px] cursor-pointer">
-                        <PinIcon className="mr-2 h-3.5 w-3.5 opacity-70" /> {chat.isPinned ? "Unpin" : "Pin"}
+                      <DropdownMenuItem onClick={() => updateChatMutation.mutate({ id: chat.id, data: { isPinned: !chat.isPinned } })} className="rounded-lg text-[13px] py-1.5 cursor-pointer">
+                        <PinIcon className="mr-2 h-3.5 w-3.5 opacity-60" /> {chat.isPinned ? "Unpin" : "Pin"}
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => updateChatMutation.mutate({ id: chat.id, data: { isArchived: !chat.isArchived } })} className="text-[13px] cursor-pointer">
-                        <ArchiveIcon className="mr-2 h-3.5 w-3.5 opacity-70" /> {chat.isArchived ? "Unarchive" : "Archive"}
+                      <DropdownMenuItem onClick={() => updateChatMutation.mutate({ id: chat.id, data: { isArchived: !chat.isArchived } })} className="rounded-lg text-[13px] py-1.5 cursor-pointer">
+                        <ArchiveIcon className="mr-2 h-3.5 w-3.5 opacity-60" /> {chat.isArchived ? "Unarchive" : "Archive"}
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-border" />
-                      <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive text-[13px] cursor-pointer" onClick={() => {
-                        if (window.confirm("Are you sure you want to delete this chat?")) {
+                      <DropdownMenuSeparator className="bg-border/40 my-1" />
+                      <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive rounded-lg text-[13px] py-1.5 cursor-pointer" onClick={() => {
+                        if (window.confirm("Delete this chat?")) {
                           deleteChatMutation.mutate(chat.id);
                         }
                       }}>
-                        <Delete02Icon className="mr-2 h-3.5 w-3.5 opacity-70" /> Delete
+                        <Delete02Icon className="mr-2 h-3.5 w-3.5 opacity-60" /> Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     );
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r-0 border-r-border/0 bg-transparent">
-      <SidebarHeader className="p-3">
-        <SidebarMenu>
-          <SidebarMenuItem className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
-            <SidebarMenuButton
-              asChild
-              size="lg"
-              className="h-10 px-2 group-data-[collapsible=icon]:hidden group-data-[collapsible=icon]:p-0 hover:bg-transparent"
-            >
-              <Link href="/" className="flex items-center gap-2">
-                <Image src="/logo.png" alt="Mentis AI Logo" width={24} height={24} className="object-contain" />
-                <span className="text-base font-semibold tracking-tight">Mentis</span>
-              </Link>
-            </SidebarMenuButton>
-            
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleSidebar}
-              className="group-data-[collapsible=icon]:hidden h-8 w-8 ml-auto hover:bg-muted/50 text-muted-foreground hover:text-foreground"
-            >
-              <SidebarLeftIcon className="h-4 w-4" />
-              <span className="sr-only">Toggle Sidebar</span>
-            </Button>
-            
-            <button 
-              onClick={toggleSidebar}
-              className="hidden group-data-[collapsible=icon]:flex relative group/trigger items-center justify-center w-8 h-8 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
-            >
-              <Image src="/logo.png" alt="Mentis AI Logo" width={20} height={20} className="object-contain transition-opacity group-hover/trigger:opacity-0 absolute" />
-              <SidebarRightIcon className="w-4 h-4 opacity-0 transition-opacity group-hover/trigger:opacity-100 absolute text-muted-foreground" />
-            </button>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
+    <>
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
 
-      <div className="px-3 pb-2 pt-1 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
-        <button 
-          onClick={() => router.push('/')} 
-          className="flex w-full items-center justify-center rounded-md bg-foreground h-8 px-3 text-[12px] font-medium text-background shadow-none transition-opacity hover:opacity-90 active:scale-[0.98] group-data-[collapsible=icon]:hidden"
-        >
-          <Edit02Icon className="mr-1.5 h-3.5 w-3.5" /> New chat
-        </button>
-        <button 
-          onClick={() => router.push('/')} 
-          className="hidden group-data-[collapsible=icon]:flex w-8 h-8 items-center justify-center rounded-md bg-foreground text-background shadow-none transition-opacity hover:opacity-90 p-0"
-        >
-          <Edit02Icon className="h-3.5 w-3.5" />
-        </button>
-      </div>
-
-      <SidebarContent className="gap-2 p-1">
-        {isLoading ? (
-          <div className="px-4 py-2 text-[13px] text-muted-foreground/60 group-data-[collapsible=icon]:hidden">Loading...</div>
-        ) : (
-          <div className="pb-4 pt-2">
-            {renderSection("Pinned", pinnedChats)}
-            {renderSection("Recent", recentChats)}
-            {renderSection("Archived", archivedChats)}
+      {/* Sidebar Container */}
+      <aside className={cn(
+        "fixed md:static inset-y-0 left-0 z-50 bg-sidebar flex flex-col transition-all duration-300 ease-out border-r border-border/0 md:border-border/0",
+        isMobileMenuOpen ? "translate-x-0 w-[260px]" : "-translate-x-full md:translate-x-0",
+        isDesktopCollapsed ? "md:w-[0px] md:opacity-0 md:overflow-hidden" : "md:w-[260px]"
+      )}>
+        <div className="flex flex-col h-full w-[260px]">
+          {/* Header / Brand */}
+          <div className="h-14 flex items-center justify-between px-4 shrink-0 mt-2">
+            <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80" onClick={() => setIsMobileMenuOpen(false)}>
+              <Image 
+                src="/logo.png" 
+                alt="Mentis AI Logo" 
+                width={28} 
+                height={28} 
+                className="rounded-lg object-contain"
+                priority
+              />
+              <span className="font-semibold tracking-tight text-[16px]">Mentis AI</span>
+            </Link>
             
-            {chats.length === 0 && (
-              <div className="px-4 text-[13px] text-muted-foreground/50 text-center mt-10 group-data-[collapsible=icon]:hidden">
-                No conversations
-              </div>
+            {setIsDesktopCollapsed && (
+              <button 
+                onClick={() => setIsDesktopCollapsed(true)}
+                className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                title="Collapse Sidebar"
+              >
+                <SidebarLeft01Icon className="w-4 h-4" />
+              </button>
             )}
           </div>
-        )}
-      </SidebarContent>
 
-      <SidebarFooter className="gap-3 px-3 pb-3">
-        <SidebarMenu className="gap-1">
-          <SidebarMenuItem className="flex items-center gap-0 group-data-[collapsible=icon]:p-0">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  tooltip="User profile"
-                  className="flex h-10 items-center gap-2 rounded-md group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0 hover:bg-muted/50"
-                >
-                  <Avatar className="size-6 shrink-0 rounded-sm">
-                    <AvatarFallback className="bg-muted text-muted-foreground text-[10px] font-medium rounded-sm">
-                      U
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="flex-1 overflow-hidden text-left text-[13px] font-medium text-ellipsis whitespace-nowrap group-data-[collapsible=icon]:hidden">
-                    User
-                  </span>
-                  <ArrowDown01Icon className="text-muted-foreground size-3.5 shrink-0 group-data-[collapsible=icon]:hidden" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className="w-56 border-border shadow-sm rounded-lg"
-                align="end"
-                side="right"
-                sideOffset={16}
+          {/* Global Actions */}
+          <div className="px-3 pt-4 pb-4 shrink-0 flex flex-col gap-1">
+            <button 
+              className="flex items-center gap-2.5 h-9 px-3 w-full rounded-lg bg-foreground text-background hover:opacity-90 transition-all text-[13px] font-medium shadow-sm active:scale-[0.98]"
+              onClick={() => {
+                router.push('/');
+                setIsMobileMenuOpen(false);
+              }}
+            >
+              <Edit02Icon className="w-4 h-4" />
+              <span>New Chat</span>
+            </button>
+            
+            <button className="flex items-center justify-between h-9 px-3 w-full rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all text-[13px] mt-1 border border-transparent hover:border-border/50 shadow-none">
+              <div className="flex items-center gap-2.5">
+                <Search01Icon className="w-4 h-4 opacity-70" />
+                <span>Search</span>
+              </div>
+              <div className="flex items-center gap-0.5 opacity-60">
+                <kbd className="font-sans text-[10px] bg-muted/80 rounded px-1.5 py-0.5">⌘</kbd>
+                <kbd className="font-sans text-[10px] bg-muted/80 rounded px-1.5 py-0.5">K</kbd>
+              </div>
+            </button>
+          </div>
+
+          {/* Chat List */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide py-2">
+            {isLoading ? (
+              <div className="px-5 py-3 flex flex-col gap-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-5 bg-muted rounded-md w-full animate-pulse opacity-50" />
+                ))}
+              </div>
+            ) : (
+              <>
+                {renderSection("Pinned", pinnedChats)}
+                {renderSection("Recent", recentChats)}
+              </>
+            )}
+          </div>
+
+          {/* Footer Actions */}
+          <div className="p-3 shrink-0 flex flex-col gap-1 bg-sidebar">
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => setIsSettingsOpen(true)}
+                className="flex-1 flex items-center gap-2.5 h-9 px-3 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors text-[13px] font-medium"
               >
-                <DropdownMenuItem className="text-[13px]" onClick={() => setIsSettingsOpen(true)}>Profile</DropdownMenuItem>
-                <DropdownMenuItem className="text-[13px]" onClick={() => setIsSettingsOpen(true)}>Settings</DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-border" />
-                <DropdownMenuItem variant="destructive" className="text-[13px]" onClick={async () => {
-                  await authClient.signOut();
-                  router.push("/login");
-                }}>
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <div className="group-data-[collapsible=icon]:hidden ml-1">
-              <ThemeToggle />
+                <Settings01Icon className="w-4 h-4 opacity-70" />
+                <span>Settings</span>
+              </button>
+              <div className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg hover:bg-muted/50 transition-colors">
+                <ThemeToggle />
+              </div>
             </div>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
+          </div>
+        </div>
+      </aside>
+
       <SettingsModal open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
-    </Sidebar>
+    </>
   );
 }

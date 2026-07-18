@@ -6,7 +6,7 @@ import { MessageList } from "./message-list";
 import { ChatInput } from "./chat-input";
 import { useChat } from "@ai-sdk/react";
 import { TextStreamChatTransport } from "ai";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Loading01Icon } from "hugeicons-react";
 import { ChatContainerRoot } from "@/components/ui/chat-container";
 import { ModelSelector } from "./model-selector";
@@ -15,6 +15,7 @@ export function ChatWindow({ chatId }: { chatId: string }) {
   const queryClient = useQueryClient();
   const [input, setInput] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
+  const endRef = useRef<HTMLDivElement>(null);
 
   const { data: dbMessages, isLoading: isFetching } = useQuery({
     queryKey: ["messages", chatId],
@@ -27,11 +28,10 @@ export function ChatWindow({ chatId }: { chatId: string }) {
       body: { chatId, modelId: selectedModel },
     }),
     onFinish: () => {
-      queryClient.invalidateQueries({ queryKey: ["chats"] }); // Refresh sidebar
+      queryClient.invalidateQueries({ queryKey: ["chats"] });
     }
   });
 
-  // Sync DB messages to useChat state initially
   useEffect(() => {
     if (dbMessages && messages.length === 0) {
       setMessages(dbMessages.map(m => ({
@@ -43,7 +43,6 @@ export function ChatWindow({ chatId }: { chatId: string }) {
     }
   }, [dbMessages, messages.length, setMessages]);
 
-  // Handle initial message from new chat
   useEffect(() => {
     const initialMsg = sessionStorage.getItem("initial_message");
     if (initialMsg && !isFetching) {
@@ -51,36 +50,54 @@ export function ChatWindow({ chatId }: { chatId: string }) {
       sendMessage({ text: initialMsg });
     }
   }, [sendMessage, isFetching]);
+  
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        endRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    }
+  }, [messages.length, status]);
 
   const isLoading = status === "submitted" || status === "streaming";
 
   return (
     <div className="flex flex-col h-full w-full bg-background relative overflow-hidden">
-      <ChatContainerRoot className="flex-1 w-full relative">
+      
+      <ChatContainerRoot className="flex-1 w-full relative overflow-y-auto">
         {isFetching && messages.length === 0 ? (
           <div className="h-full flex items-center justify-center absolute inset-0">
             <Loading01Icon className="animate-spin h-5 w-5 text-muted-foreground/50" />
           </div>
         ) : (
-          <MessageList messages={messages} isLoading={isLoading} />
+          <>
+            <MessageList messages={messages} isLoading={isLoading} />
+            <div ref={endRef} className="h-40" />
+          </>
         )}
       </ChatContainerRoot>
       
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-10 pb-6 px-4">
-        <div className="max-w-3xl mx-auto w-full flex flex-col gap-2">
-          <div className="px-2">
-            <ModelSelector value={selectedModel} onChange={setSelectedModel} />
+      <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none">
+        {/* Solid fade to mask scrolling text in the gap below the input */}
+        <div className="h-40 bg-gradient-to-t from-background via-background/90 to-transparent w-full" />
+      </div>
+      
+      <div className="absolute bottom-6 left-0 right-0 px-4 z-20 pointer-events-none">
+        <div className="max-w-3xl mx-auto w-full flex flex-col gap-2 pointer-events-auto">
+          <div className="rounded-2xl bg-background/70 backdrop-blur-2xl border border-border/60 shadow-lg p-2 transition-all focus-within:shadow-xl focus-within:border-border focus-within:bg-background/90">
+            <ChatInput 
+              value={input}
+              onChange={setInput}
+              onSubmit={() => {
+                sendMessage({ text: input });
+                setInput("");
+              }}
+              isLoading={isLoading}
+              onStop={stop}
+              className="shadow-none border-none bg-transparent"
+              modelSelector={<ModelSelector value={selectedModel} onChange={setSelectedModel} />}
+            />
           </div>
-          <ChatInput 
-            value={input}
-            onChange={setInput}
-            onSubmit={() => {
-              sendMessage({ text: input });
-              setInput("");
-            }}
-            isLoading={isLoading}
-            onStop={stop}
-          />
         </div>
       </div>
     </div>

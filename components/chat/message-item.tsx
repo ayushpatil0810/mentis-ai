@@ -3,13 +3,7 @@
 import { useState } from "react";
 import { Copy01Icon, ThumbsUpIcon, ThumbsDownIcon } from "hugeicons-react";
 import { toast } from "sonner";
-import {
-  Message,
-  MessageContent,
-  MessageActions,
-  MessageAction,
-} from "@/components/ui/message";
-import { Button } from "../ui/button";
+import { MessageRenderer } from "./message-renderer";
 
 export function MessageItem({ message }: { message: any }) {
   const isUser = message.role === "user";
@@ -28,60 +22,69 @@ export function MessageItem({ message }: { message: any }) {
   };
 
   return (
-    <div className="flex flex-col gap-8 w-full py-2 group">
-      {isUser ? (
-        <Message className="justify-end w-full">
-          <MessageContent className="rounded-3xl bg-muted text-foreground px-5 py-2.5 max-w-[85%] text-[15px]">
-            {textContent}
-          </MessageContent>
-        </Message>
-      ) : (
-        <Message className="justify-start w-full">
-          <div className="flex w-full flex-col gap-1 max-w-[85%]">
-            <MessageContent 
-              markdown
-              className="bg-transparent text-foreground p-0 text-[15px] prose-p:leading-relaxed prose-pre:my-4 prose-pre:rounded-lg prose-headings:font-medium prose-a:text-primary max-w-none"
-            >
-              {textContent}
-            </MessageContent>
-            
-            <MessageActions className="self-end opacity-0 group-hover:opacity-100 transition-opacity">
-              <MessageAction tooltip="Copy to clipboard">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
-                  onClick={handleCopy}
-                >
-                  <Copy01Icon className={`h-4 w-4 ${copied ? "text-green-500" : ""}`} />
-                </Button>
-              </MessageAction>
+    <div className="flex w-full group py-6 border-b border-border/30 last:border-0">
+      <div className="flex w-full gap-4 md:gap-6">
+        
+        {/* Avatar/Indicator Column */}
+        <div className="shrink-0 flex flex-col items-center pt-0.5">
+          {isUser ? (
+            <div className="w-8 h-8 rounded-full bg-foreground flex items-center justify-center shadow-sm">
+              <span className="text-background font-bold text-xs">U</span>
+            </div>
+          ) : (
+            <div className="w-8 h-8 rounded-xl bg-transparent border border-border/60 flex items-center justify-center shadow-sm">
+              <span className="text-foreground font-bold text-xs">M</span>
+            </div>
+          )}
+        </div>
 
-              <MessageAction tooltip="Helpful">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`h-8 w-8 rounded-full text-muted-foreground hover:text-foreground ${liked === true ? "bg-green-100 text-green-500 hover:text-green-600 dark:bg-green-900/30" : ""}`}
-                  onClick={() => setLiked(true)}
-                >
-                  <ThumbsUpIcon className="h-4 w-4" />
-                </Button>
-              </MessageAction>
-
-              <MessageAction tooltip="Not helpful">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`h-8 w-8 rounded-full text-muted-foreground hover:text-foreground ${liked === false ? "bg-red-100 text-red-500 hover:text-red-600 dark:bg-red-900/30" : ""}`}
-                  onClick={() => setLiked(false)}
-                >
-                  <ThumbsDownIcon className="h-4 w-4" />
-                </Button>
-              </MessageAction>
-            </MessageActions>
+        {/* Content Column */}
+        <div className="flex-1 flex flex-col min-w-0 max-w-none">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-semibold text-[14px]">
+              {isUser ? "You" : "Mentis AI"}
+            </span>
+            <span className="text-[12px] text-muted-foreground/60">
+              {new Date(message.createdAt || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+            </span>
           </div>
-        </Message>
-      )}
+
+          <div className={`w-full ${isUser ? "text-[15px] leading-relaxed font-medium text-foreground/90 mt-1" : "text-[15px]"}`}>
+            {isUser ? (
+              <div className="whitespace-pre-wrap">{textContent}</div>
+            ) : (
+              <MessageRenderer content={textContent} />
+            )}
+          </div>
+          
+          {/* Action Bar (Assistant Only) */}
+          {!isUser && (
+            <div className="flex items-center gap-1 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={handleCopy}
+                className={`flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted/80 text-muted-foreground transition-colors ${copied ? "text-green-500" : ""}`}
+                title="Copy to clipboard"
+              >
+                <Copy01Icon className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => setLiked(true)}
+                className={`flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted/80 transition-colors ${liked === true ? "text-green-500 bg-green-500/10" : "text-muted-foreground"}`}
+                title="Helpful"
+              >
+                <ThumbsUpIcon className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => setLiked(false)}
+                className={`flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted/80 transition-colors ${liked === false ? "text-destructive bg-destructive/10" : "text-muted-foreground"}`}
+                title="Not helpful"
+              >
+                <ThumbsDownIcon className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

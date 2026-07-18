@@ -16,9 +16,10 @@ interface ChatInputProps {
   onStop: () => void;
   placeholder?: string;
   className?: string;
+  modelSelector?: React.ReactNode;
 }
 
-export function ChatInput({ value, onChange, onSubmit, isLoading, onStop, placeholder, className }: ChatInputProps) {
+export function ChatInput({ value, onChange, onSubmit, isLoading, onStop, placeholder, className, modelSelector }: ChatInputProps) {
   const isExpanded = value.includes("\n") || value.length > 60;
 
   return (
@@ -34,7 +35,12 @@ export function ChatInput({ value, onChange, onSubmit, isLoading, onStop, placeh
           placeholder={placeholder || "Message Mentis..."} 
           className={cn("px-4 py-2.5 text-[15px]", !isExpanded && "pr-12")} 
         />
-        <PromptInputActions className={cn("justify-end", isExpanded ? "pt-2 pb-1 pr-2" : "absolute right-3 bottom-2.5")}>
+        <PromptInputActions className={cn("justify-end items-center gap-1.5", isExpanded ? "pt-2 pb-1 pr-2" : "absolute right-2 bottom-2")}>
+          {modelSelector && (
+            <div className="shrink-0">
+              {modelSelector}
+            </div>
+          )}
           <PromptInputAction
             tooltip={isLoading ? "Stop generation" : "Send message"}
           >
