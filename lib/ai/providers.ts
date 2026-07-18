@@ -3,10 +3,10 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { env } from "../env";
 import { getDecryptedApiKey } from "../services/api-key";
-import { UnauthorizedError } from "../utils/errors";
+import { AuthError } from "../utils/errors";
 
 export async function getProvider(userId: string, providerName: string) {
-  if (!userId) throw new UnauthorizedError();
+  if (!userId) throw new AuthError();
   
   // Try to get user's API key first
   const userKey = await getDecryptedApiKey(userId, providerName);

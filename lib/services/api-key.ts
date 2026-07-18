@@ -4,7 +4,7 @@ import { apiKey } from "../db/schema";
 import { ulid } from "ulid";
 import { z } from "zod";
 import { encrypt, decrypt } from "../utils/encryption";
-import { NotFoundError, UnauthorizedError } from "../utils/errors";
+import { NotFoundError, AuthError } from "../utils/errors";
 
 const upsertApiKeySchema = z.object({
   provider: z.string(),
@@ -12,7 +12,7 @@ const upsertApiKeySchema = z.object({
 });
 
 export async function upsertApiKey(userId: string, data: z.infer<typeof upsertApiKeySchema>) {
-  if (!userId) throw new UnauthorizedError();
+  if (!userId) throw new AuthError();
   
   const parsed = upsertApiKeySchema.parse(data);
   const encryptedKey = encrypt(parsed.key);
@@ -39,8 +39,8 @@ export async function upsertApiKey(userId: string, data: z.infer<typeof upsertAp
   }
 }
 
-export async function getApiKeyMetadata(userId: string, provider: string) {
-  if (!userId) throw new UnauthorizedError();
+async function getApiKeyMetadata(userId: string, provider: string) {
+  if (!userId) throw new AuthError();
   
   const [key] = await db.select({
     id: apiKey.id,
@@ -56,7 +56,7 @@ export async function getApiKeyMetadata(userId: string, provider: string) {
 }
 
 export async function getApiKeys(userId: string) {
-  if (!userId) throw new UnauthorizedError();
+  if (!userId) throw new AuthError();
   
   return await db.select({
     id: apiKey.id,
@@ -70,7 +70,7 @@ export async function getApiKeys(userId: string) {
 }
 
 export async function getDecryptedApiKey(userId: string, provider: string) {
-  if (!userId) throw new UnauthorizedError();
+  if (!userId) throw new AuthError();
   
   const [keyRecord] = await db.select()
     .from(apiKey)
@@ -86,7 +86,7 @@ export async function getDecryptedApiKey(userId: string, provider: string) {
 }
 
 export async function deleteApiKey(userId: string, provider: string) {
-  if (!userId) throw new UnauthorizedError();
+  if (!userId) throw new AuthError();
   
   const [deleted] = await db.delete(apiKey)
     .where(and(eq(apiKey.userId, userId), eq(apiKey.provider, provider)))
@@ -98,7 +98,7 @@ export async function deleteApiKey(userId: string, provider: string) {
 }
 
 export async function toggleApiKey(userId: string, provider: string, isEnabled: boolean) {
-  if (!userId) throw new UnauthorizedError();
+  if (!userId) throw new AuthError();
   
   const [updated] = await db.update(apiKey)
     .set({ isEnabled })

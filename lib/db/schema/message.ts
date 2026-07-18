@@ -1,5 +1,6 @@
 import { pgTable, text, timestamp, jsonb, index, pgEnum } from "drizzle-orm/pg-core";
 import { chat } from "./chat";
+import { timestamps } from "./utils";
 
 export const roleEnum = pgEnum("role", ["system", "user", "assistant", "data", "tool"]);
 export const messageStatusEnum = pgEnum("status", ["pending", "complete", "error"]);
@@ -16,11 +17,7 @@ export const message = pgTable(
     content: text("content").notNull(),
     parts: jsonb("parts"),
     metadata: jsonb("metadata"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at")
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
+    ...timestamps,
   },
   (table) => [
     // Essential for loading a chat's history chronologically

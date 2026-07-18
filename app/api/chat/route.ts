@@ -2,10 +2,16 @@ import { streamText } from "ai";
 import { requireAuth } from "@/lib/auth/auth-utils";
 import * as messageService from "@/lib/services/message";
 import { getProvider } from "@/lib/ai/providers";
+import { logger } from "@/lib/utils/logger";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
     const { user } = await requireAuth();
+    
+    // Apply rate limit for AI generation (e.g., 20 messages per minute)
+    await rateLimit(`chat:${user.id}`, 20, 60000);
+
     const { chatId, messages, modelId } = await req.json();
 
     if (!chatId) {
@@ -15,7 +21,7 @@ export async function POST(req: Request) {
     // `messages` from the client will contain the entire history, but we only trust our database.
     // We just extract the latest user message from the incoming array.
     const latestMessage = messages[messages.length - 1];
-    console.log("Incoming latest message:", JSON.stringify(latestMessage, null, 2));
+    logger.debug("Incoming latest message", { latestMessage });
     
     if (!latestMessage || latestMessage.role !== "user") {
       return new Response("Invalid message format", { status: 400 });
@@ -81,9 +87,12 @@ export async function POST(req: Request) {
 
     return result.toTextStreamResponse();
   } catch (error: any) {
-    console.error("Chat API Error:", error);
+    logger.error("Chat API Error", error);
+    if (error.name === "RateLimitError") {
+      return new Response("Too many requests", { status: 429 });
+    }
     // If unauthorized
-    if (error.message?.includes("Unauthorized") || error.name === "UnauthorizedError") {
+    if (error.message?.includes("Unauthorized") || error.name === "AuthError") {
       return new Response("Unauthorized", { status: 401 });
     }
     return new Response(error.message || "Internal Server Error", { status: 500 });

@@ -136,16 +136,7 @@ function PromptInputTextarea({
   }
 
   useLayoutEffect(() => {
-    if (!textareaRef.current || disableAutosize) return
-
-    const el = textareaRef.current
-    el.style.height = "auto"
-
-    if (typeof maxHeight === "number") {
-      el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`
-    } else {
-      el.style.height = `min(${el.scrollHeight}px, ${maxHeight})`
-    }
+    adjustHeight(textareaRef.current)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, maxHeight, disableAutosize])
 

@@ -22,7 +22,48 @@ export interface LoaderProps {
   className?: string
 }
 
-export function CircularLoader({
+function BaseDotsLoader({
+  size = "md",
+  className,
+  dotSizes,
+  containerSizes,
+  animationClass,
+  delayStepMs,
+}: {
+  size?: "sm" | "md" | "lg"
+  className?: string
+  dotSizes: Record<"sm" | "md" | "lg", string>
+  containerSizes: Record<"sm" | "md" | "lg", string>
+  animationClass: string
+  delayStepMs: number
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-center space-x-1",
+        containerSizes[size],
+        className
+      )}
+    >
+      {[...Array(3)].map((_, i) => (
+        <div
+          key={i}
+          className={cn(
+            "bg-primary rounded-full",
+            animationClass,
+            dotSizes[size]
+          )}
+          style={{
+            animationDelay: `${i * delayStepMs}ms`,
+          }}
+        />
+      ))}
+      <span className="sr-only">Loading</span>
+    </div>
+  )
+}
+
+function CircularLoader({
   className,
   size = "md",
 }: {
@@ -48,7 +89,7 @@ export function CircularLoader({
   )
 }
 
-export function ClassicLoader({
+function ClassicLoader({
   className,
   size = "md",
 }: {
@@ -94,7 +135,7 @@ export function ClassicLoader({
   )
 }
 
-export function PulseLoader({
+function PulseLoader({
   className,
   size = "md",
 }: {
@@ -115,7 +156,7 @@ export function PulseLoader({
   )
 }
 
-export function PulseDotLoader({
+function PulseDotLoader({
   className,
   size = "md",
 }: {
@@ -141,7 +182,7 @@ export function PulseDotLoader({
   )
 }
 
-export function DotsLoader({
+function DotsLoader({
   className,
   size = "md",
 }: {
@@ -161,31 +202,18 @@ export function DotsLoader({
   }
 
   return (
-    <div
-      className={cn(
-        "flex items-center space-x-1",
-        containerSizes[size],
-        className
-      )}
-    >
-      {[...Array(3)].map((_, i) => (
-        <div
-          key={i}
-          className={cn(
-            "bg-primary animate-[bounce-dots_1.4s_ease-in-out_infinite] rounded-full",
-            dotSizes[size]
-          )}
-          style={{
-            animationDelay: `${i * 160}ms`,
-          }}
-        />
-      ))}
-      <span className="sr-only">Loading</span>
-    </div>
+    <BaseDotsLoader
+      size={size}
+      className={className}
+      dotSizes={dotSizes}
+      containerSizes={containerSizes}
+      animationClass="animate-[bounce-dots_1.4s_ease-in-out_infinite]"
+      delayStepMs={160}
+    />
   )
 }
 
-export function TypingLoader({
+function TypingLoader({
   className,
   size = "md",
 }: {
@@ -205,31 +233,18 @@ export function TypingLoader({
   }
 
   return (
-    <div
-      className={cn(
-        "flex items-center space-x-1",
-        containerSizes[size],
-        className
-      )}
-    >
-      {[...Array(3)].map((_, i) => (
-        <div
-          key={i}
-          className={cn(
-            "bg-primary animate-[typing_1s_infinite] rounded-full",
-            dotSizes[size]
-          )}
-          style={{
-            animationDelay: `${i * 250}ms`,
-          }}
-        />
-      ))}
-      <span className="sr-only">Loading</span>
-    </div>
+    <BaseDotsLoader
+      size={size}
+      className={className}
+      dotSizes={dotSizes}
+      containerSizes={containerSizes}
+      animationClass="animate-[typing_1s_infinite]"
+      delayStepMs={250}
+    />
   )
 }
 
-export function WaveLoader({
+function WaveLoader({
   className,
   size = "md",
 }: {
@@ -280,7 +295,7 @@ export function WaveLoader({
   )
 }
 
-export function BarsLoader({
+function BarsLoader({
   className,
   size = "md",
 }: {
@@ -318,7 +333,7 @@ export function BarsLoader({
   )
 }
 
-export function TerminalLoader({
+function TerminalLoader({
   className,
   size = "md",
 }: {
@@ -365,7 +380,7 @@ export function TerminalLoader({
   )
 }
 
-export function TextBlinkLoader({
+function TextBlinkLoader({
   text = "Thinking",
   className,
   size = "md",
@@ -393,7 +408,7 @@ export function TextBlinkLoader({
   )
 }
 
-export function TextShimmerLoader({
+function TextShimmerLoader({
   text = "Thinking",
   className,
   size = "md",
@@ -423,7 +438,7 @@ export function TextShimmerLoader({
   )
 }
 
-export function TextDotsLoader({
+function TextDotsLoader({
   className,
   text = "Thinking",
   size = "md",

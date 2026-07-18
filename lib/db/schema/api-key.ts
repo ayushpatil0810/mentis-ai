@@ -1,5 +1,6 @@
 import { pgTable, text, timestamp, uniqueIndex, boolean } from "drizzle-orm/pg-core";
 import { user } from "./auth";
+import { timestamps } from "./utils";
 
 export const apiKey = pgTable(
   "api_key",
@@ -11,11 +12,7 @@ export const apiKey = pgTable(
     provider: text("provider").notNull(), // 'openai', 'anthropic', 'gemini'
     encryptedKey: text("encrypted_key").notNull(),
     isEnabled: boolean("is_enabled").default(true).notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at")
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
+    ...timestamps,
   },
   (table) => [
     // Ensure a user can only have one key per provider

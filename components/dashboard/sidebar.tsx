@@ -29,6 +29,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface SidebarProps {
   isMobileMenuOpen: boolean;
@@ -39,6 +42,10 @@ interface SidebarProps {
 
 export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesktopCollapsed = false, setIsDesktopCollapsed }: SidebarProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [chatToRename, setChatToRename] = useState<any>(null);
+  const [renameTitle, setRenameTitle] = useState("");
+  const [chatToDelete, setChatToDelete] = useState<any>(null);
+  
   const pathname = usePathname();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -46,6 +53,7 @@ export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesk
   const { data: chats = [], isLoading } = useQuery({
     queryKey: ["chats"],
     queryFn: () => getChatsAction(),
+    staleTime: 60000, // 1 minute
   });
 
   const updateChatMutation = useMutation({
@@ -68,10 +76,8 @@ export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesk
   const recentChats = chats.filter((c: any) => !c.isPinned && !c.isArchived);
 
   const handleRename = (chat: any) => {
-    const newTitle = window.prompt("Enter new title:", chat.title);
-    if (newTitle && newTitle.trim() !== chat.title) {
-      updateChatMutation.mutate({ id: chat.id, data: { title: newTitle.trim() } });
-    }
+    setChatToRename(chat);
+    setRenameTitle(chat.title);
   };
 
   const renderSection = (title: string, list: any[]) => {
@@ -122,9 +128,7 @@ export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesk
                       </DropdownMenuItem>
                       <DropdownMenuSeparator className="bg-border/40 my-1" />
                       <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive rounded-lg text-[13px] py-1.5 cursor-pointer" onClick={() => {
-                        if (window.confirm("Delete this chat?")) {
-                          deleteChatMutation.mutate(chat.id);
-                        }
+                        setChatToDelete(chat);
                       }}>
                         <Delete02Icon className="mr-2 h-3.5 w-3.5 opacity-60" /> Delete
                       </DropdownMenuItem>
@@ -216,8 +220,18 @@ export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesk
               </div>
             ) : (
               <>
-                {renderSection("Pinned", pinnedChats)}
-                {renderSection("Recent", recentChats)}
+                {chats.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-40 text-center px-4">
+                    <Message01Icon className="w-8 h-8 opacity-20 mb-2" />
+                    <p className="text-sm font-medium text-muted-foreground/60">No chats yet</p>
+                    <p className="text-xs text-muted-foreground/40 mt-1">Start a new conversation</p>
+                  </div>
+                ) : (
+                  <>
+                    {renderSection("Pinned", pinnedChats)}
+                    {renderSection("Recent", recentChats)}
+                  </>
+                )}
               </>
             )}
           </div>
@@ -241,6 +255,56 @@ export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesk
       </aside>
 
       <SettingsModal open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
+
+      <Dialog open={!!chatToRename} onOpenChange={(open) => !open && setChatToRename(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Chat</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input 
+              value={renameTitle} 
+              onChange={e => setRenameTitle(e.target.value)} 
+              placeholder="Enter new chat title"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  if (renameTitle && renameTitle.trim() !== chatToRename?.title) {
+                    updateChatMutation.mutate({ id: chatToRename.id, data: { title: renameTitle.trim() } });
+                  }
+                  setChatToRename(null);
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChatToRename(null)}>Cancel</Button>
+            <Button onClick={() => {
+              if (renameTitle && renameTitle.trim() !== chatToRename?.title) {
+                updateChatMutation.mutate({ id: chatToRename.id, data: { title: renameTitle.trim() } });
+              }
+              setChatToRename(null);
+            }}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!chatToDelete} onOpenChange={(open) => !open && setChatToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Chat</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this chat? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChatToDelete(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => {
+              deleteChatMutation.mutate(chatToDelete.id);
+              setChatToDelete(null);
+            }}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

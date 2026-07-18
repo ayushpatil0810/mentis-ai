@@ -10,6 +10,7 @@ import { updateSettingsAction } from "@/app/actions/settings";
 import { toast } from "sonner";
 import { Loader } from "@/components/ui/loader";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 const PROVIDERS = [
@@ -41,6 +42,7 @@ export function ProvidersSection({ settings, apiKeys, onUpdateKeys, onUpdateSett
   const [keysInput, setKeysInput] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [providerToDelete, setProviderToDelete] = useState<string | null>(null);
 
   const handleDefaultProviderChange = async (value: string) => {
     setDefaultProvider(value);
@@ -102,14 +104,20 @@ export function ProvidersSection({ settings, apiKeys, onUpdateKeys, onUpdateSett
     }
   };
 
-  const handleDelete = async (providerId: string) => {
-    if (!window.confirm(`Are you sure you want to delete the ${providerId} API key?`)) return;
+  const handleDelete = (providerId: string) => {
+    setProviderToDelete(providerId);
+  };
+
+  const confirmDelete = async () => {
+    if (!providerToDelete) return;
     try {
-      await deleteApiKeyAction(providerId);
+      await deleteApiKeyAction(providerToDelete);
       toast.success("API key deleted");
       onUpdateKeys();
     } catch {
       toast.error("Failed to delete API key");
+    } finally {
+      setProviderToDelete(null);
     }
   };
 
@@ -224,6 +232,21 @@ export function ProvidersSection({ settings, apiKeys, onUpdateKeys, onUpdateSett
           );
         })}
       </div>
+      
+      <Dialog open={!!providerToDelete} onOpenChange={(open) => !open && setProviderToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete API Key</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the {providerToDelete} API key? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProviderToDelete(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -20,6 +20,7 @@ export function ChatWindow({ chatId }: { chatId: string }) {
   const { data: dbMessages, isLoading: isFetching } = useQuery({
     queryKey: ["messages", chatId],
     queryFn: () => getMessagesAction(chatId),
+    staleTime: Infinity, // Messages don't change unless we update them
   });
 
   const { messages, sendMessage, status, stop, setMessages } = useChat({

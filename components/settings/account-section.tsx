@@ -8,11 +8,15 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Logout01Icon, Alert01Icon, UserCircleIcon, Key01Icon } from "hugeicons-react";
 import { Loader } from "@/components/ui/loader";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 export function AccountSection() {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   // In a real app, you'd fetch the user's email/name from the session or a query
   // We'll use a placeholder or check authClient state if available
@@ -31,20 +35,23 @@ export function AccountSection() {
   };
 
   const handleDeleteAccount = async () => {
-    const confirm = window.prompt("Type 'DELETE' to confirm account deletion. This action is irreversible.");
-    if (confirm === "DELETE") {
-      try {
-        setIsDeleting(true);
-        await deleteAccountAction();
-        toast.success("Account deleted successfully");
-        await authClient.signOut();
-        router.push("/login");
-      } catch {
-        toast.error("Failed to delete account");
-        setIsDeleting(false);
-      }
-    } else if (confirm !== null) {
+    if (deleteConfirmText !== "DELETE") {
       toast.error("Confirmation failed. Account not deleted.");
+      return;
+    }
+    
+    try {
+      setIsDeleting(true);
+      await deleteAccountAction();
+      toast.success("Account deleted successfully");
+      await authClient.signOut();
+      router.push("/login");
+    } catch {
+      toast.error("Failed to delete account");
+      setIsDeleting(false);
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setDeleteConfirmText("");
     }
   };
 
@@ -100,7 +107,7 @@ export function AccountSection() {
             </div>
             <Button 
               variant="destructive" 
-              onClick={handleDeleteAccount} 
+              onClick={() => setIsDeleteDialogOpen(true)} 
               disabled={isDeleting}
               className="h-9 px-4 rounded-lg text-[13px] font-medium shadow-none bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
@@ -111,6 +118,44 @@ export function AccountSection() {
         </div>
         
       </div>
+
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Delete Account</DialogTitle>
+            <DialogDescription>
+              Permanently remove your account and all associated data. This action is irreversible.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm font-medium">Type <strong className="select-all">DELETE</strong> to confirm.</p>
+            <Input 
+              value={deleteConfirmText} 
+              onChange={e => setDeleteConfirmText(e.target.value)} 
+              placeholder="DELETE"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && deleteConfirmText === "DELETE") {
+                  handleDeleteAccount();
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsDeleteDialogOpen(false);
+              setDeleteConfirmText("");
+            }} disabled={isDeleting}>Cancel</Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteAccount}
+              disabled={deleteConfirmText !== "DELETE" || isDeleting}
+            >
+              {isDeleting && <Loader size="sm" className="mr-2" />}
+              Delete Account
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

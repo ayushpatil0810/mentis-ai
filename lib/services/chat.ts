@@ -3,7 +3,7 @@ import { db } from "../db";
 import { chat } from "../db/schema";
 import { ulid } from "ulid";
 import { z } from "zod";
-import { NotFoundError, UnauthorizedError } from "../utils/errors";
+import { NotFoundError, AuthError } from "../utils/errors";
 
 const createChatSchema = z.object({
   title: z.string().optional(),
@@ -12,7 +12,7 @@ const createChatSchema = z.object({
 });
 
 export async function createChat(userId: string, data: z.infer<typeof createChatSchema>) {
-  if (!userId) throw new UnauthorizedError();
+  if (!userId) throw new AuthError();
   
   const parsed = createChatSchema.parse(data);
   const id = ulid();
@@ -29,7 +29,7 @@ export async function createChat(userId: string, data: z.infer<typeof createChat
 }
 
 export async function getChats(userId: string) {
-  if (!userId) throw new UnauthorizedError();
+  if (!userId) throw new AuthError();
   
   return await db.select()
     .from(chat)
@@ -38,7 +38,7 @@ export async function getChats(userId: string) {
 }
 
 export async function getChatById(userId: string, chatId: string) {
-  if (!userId) throw new UnauthorizedError();
+  if (!userId) throw new AuthError();
   
   const [existingChat] = await db.select()
     .from(chat)
@@ -62,7 +62,7 @@ const updateChatSchema = z.object({
 });
 
 export async function updateChat(userId: string, chatId: string, data: z.infer<typeof updateChatSchema>) {
-  if (!userId) throw new UnauthorizedError();
+  if (!userId) throw new AuthError();
   
   const parsed = updateChatSchema.parse(data);
   
@@ -79,7 +79,7 @@ export async function updateChat(userId: string, chatId: string, data: z.infer<t
 }
 
 export async function deleteChat(userId: string, chatId: string) {
-  if (!userId) throw new UnauthorizedError();
+  if (!userId) throw new AuthError();
   
   const [deletedChat] = await db.delete(chat)
     .where(and(eq(chat.id, chatId), eq(chat.userId, userId)))

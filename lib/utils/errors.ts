@@ -1,26 +1,43 @@
-export class ApplicationError extends Error {
+export class AppError extends Error {
   public statusCode: number;
-  constructor(message: string, statusCode = 500) {
+  public code: string;
+  public details?: any;
+
+  constructor(message: string, statusCode: number = 500, code: string = 'INTERNAL_ERROR', details?: any) {
     super(message);
-    this.name = this.constructor.name;
+    this.name = 'AppError';
     this.statusCode = statusCode;
+    this.code = code;
+    this.details = details;
+
+    Object.setPrototypeOf(this, new.target.prototype); // Ensure proper prototype chain
   }
 }
 
-export class UnauthorizedError extends ApplicationError {
-  constructor(message = "Unauthorized") {
-    super(message, 401);
+export class ValidationError extends AppError {
+  constructor(message: string, details?: any) {
+    super(message, 400, 'VALIDATION_ERROR', details);
+    this.name = 'ValidationError';
   }
 }
 
-export class NotFoundError extends ApplicationError {
-  constructor(message = "Not Found") {
-    super(message, 404);
+export class AuthError extends AppError {
+  constructor(message: string = 'Unauthorized', details?: any) {
+    super(message, 401, 'UNAUTHORIZED', details);
+    this.name = 'AuthError';
   }
 }
 
-export class ValidationError extends ApplicationError {
-  constructor(message = "Validation Error") {
-    super(message, 400);
+export class NotFoundError extends AppError {
+  constructor(message: string = 'Resource not found', details?: any) {
+    super(message, 404, 'NOT_FOUND', details);
+    this.name = 'NotFoundError';
+  }
+}
+
+export class RateLimitError extends AppError {
+  constructor(message: string = 'Too many requests', details?: any) {
+    super(message, 429, 'RATE_LIMIT_EXCEEDED', details);
+    this.name = 'RateLimitError';
   }
 }

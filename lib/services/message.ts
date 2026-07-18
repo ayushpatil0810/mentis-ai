@@ -4,7 +4,7 @@ import { message } from "../db/schema";
 import { getChatById, updateChat } from "./chat";
 import { ulid } from "ulid";
 import { z } from "zod";
-import { UnauthorizedError } from "../utils/errors";
+import { AuthError } from "../utils/errors";
 
 const createMessageSchema = z.object({
   chatId: z.string(),
@@ -16,7 +16,7 @@ const createMessageSchema = z.object({
 });
 
 export async function createMessage(userId: string, data: z.infer<typeof createMessageSchema>) {
-  if (!userId) throw new UnauthorizedError();
+  if (!userId) throw new AuthError();
   
   const parsed = createMessageSchema.parse(data);
   
@@ -42,7 +42,7 @@ export async function createMessage(userId: string, data: z.infer<typeof createM
 }
 
 export async function getMessagesByChatId(userId: string, chatId: string) {
-  if (!userId) throw new UnauthorizedError();
+  if (!userId) throw new AuthError();
   
   // Verify ownership
   await getChatById(userId, chatId);

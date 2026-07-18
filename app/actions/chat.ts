@@ -19,6 +19,8 @@ export async function getChatByIdAction(chatId: string) {
   return await chatService.getChatById(user.id, chatId);
 }
 
+
+
 export async function updateChatAction(chatId: string, data: { title?: string, isPinned?: boolean, isArchived?: boolean, isShared?: boolean }) {
   const { user } = await requireAuth();
   return await chatService.updateChat(user.id, chatId, data);

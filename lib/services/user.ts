@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { user } from "../db/schema";
-import { NotFoundError, UnauthorizedError } from "../utils/errors";
+import { NotFoundError, AuthError } from "../utils/errors";
 
 export async function getUserSettings(userId: string) {
-  if (!userId) throw new UnauthorizedError();
+  if (!userId) throw new AuthError();
   
   const [userRecord] = await db.select({
     id: user.id,
@@ -22,7 +22,7 @@ export async function getUserSettings(userId: string) {
 }
 
 export async function updateUserSettings(userId: string, data: { name?: string, defaultProvider?: string | null }) {
-  if (!userId) throw new UnauthorizedError();
+  if (!userId) throw new AuthError();
   
   const [updated] = await db.update(user)
     .set({
@@ -42,7 +42,7 @@ export async function updateUserSettings(userId: string, data: { name?: string, 
 }
 
 export async function deleteUserAccount(userId: string) {
-  if (!userId) throw new UnauthorizedError();
+  if (!userId) throw new AuthError();
   
   const [deleted] = await db.delete(user)
     .where(eq(user.id, userId))
