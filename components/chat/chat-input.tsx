@@ -8,10 +8,11 @@ interface ChatInputProps {
   onChange: (value: string) => void;
   onSubmit: () => void;
   isLoading: boolean;
+  onStop: () => void;
   placeholder?: string;
 }
 
-export function ChatInput({ value, onChange, onSubmit, isLoading, placeholder }: ChatInputProps) {
+export function ChatInput({ value, onChange, onSubmit, isLoading, onStop, placeholder }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -42,18 +43,32 @@ export function ChatInput({ value, onChange, onSubmit, isLoading, placeholder }:
         rows={1}
       />
       <div className="absolute right-3 bottom-3 flex items-center justify-end">
-        <Button 
-          size="icon" 
-          variant={value.trim() ? "default" : "secondary"} 
-          className="h-8 w-8 rounded-full" 
-          disabled={!value.trim() || isLoading}
-          onClick={(e) => {
-            e.preventDefault();
-            if (value.trim()) onSubmit();
-          }}
-        >
-          {isLoading ? <Square className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-        </Button>
+        {isLoading ? (
+          <Button
+            size="icon"
+            variant="secondary"
+            className="h-8 w-8 rounded-full"
+            onClick={(e) => {
+              e.preventDefault();
+              onStop();
+            }}
+          >
+            <Square className="h-4 w-4" />
+          </Button>
+        ) : (
+          <Button 
+            size="icon" 
+            variant={value.trim() ? "default" : "secondary"} 
+            className="h-8 w-8 rounded-full" 
+            disabled={!value.trim()}
+            onClick={(e) => {
+              e.preventDefault();
+              if (value.trim()) onSubmit();
+            }}
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   );

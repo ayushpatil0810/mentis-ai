@@ -34,21 +34,4 @@ export async function getMessagesAction(chatId: string) {
   return await messageService.getMessagesByChatId(user.id, chatId);
 }
 
-export async function sendMessageAction(chatId: string, content: string) {
-  const { user } = await requireAuth();
-  
-  const userMessage = await messageService.createMessage(user.id, {
-    chatId,
-    role: "user",
-    content,
-  });
-  
-  // Placeholder response as per PRD
-  const assistantMessage = await messageService.createMessage(user.id, {
-    chatId,
-    role: "assistant",
-    content: "This is a placeholder response. AI integration is not yet enabled.",
-  });
-  
-  return { userMessage, assistantMessage };
-}
+

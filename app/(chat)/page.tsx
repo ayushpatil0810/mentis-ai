@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { createChatAction, sendMessageAction } from "@/app/actions/chat";
+import { createChatAction } from "@/app/actions/chat";
 import { ChatInput } from "@/components/chat/chat-input";
 
 export default function NewChatPage() {
@@ -15,8 +15,8 @@ export default function NewChatPage() {
       // 1. Create chat
       const chat = await createChatAction({ title: "New Chat" });
       
-      // 2. Send initial message
-      await sendMessageAction(chat.id, messageContent);
+      // Store initial message for the chat window to pick up
+      sessionStorage.setItem("initial_message", messageContent);
       
       return chat;
     },
@@ -43,6 +43,7 @@ export default function NewChatPage() {
             onChange={setContent}
             onSubmit={() => handleSubmit(content)}
             isLoading={createChatMutation.isPending}
+            onStop={() => {}}
             placeholder="Send a message..."
           />
         </div>
