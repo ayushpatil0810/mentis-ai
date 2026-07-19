@@ -3,7 +3,7 @@ import { ToolConfig } from "@/types/tool";
 
 export const datetimeTool: ToolConfig<any> = {
   name: "datetime",
-  description: "Get the current date, time, timezone, or compute relative dates.",
+  description: "Get the current date/time, local timezones, or compute relative offset dates (e.g. today, yesterday, tomorrow, next week). Use whenever date/time context is needed. Returns ISO and formatted string.",
   parameters: z.object({
     action: z.enum(["current", "relative"]).default("current").describe("Whether to get the current time or calculate a relative date/time."),
     offsetValue: z.number().optional().describe("Number of units to offset (positive for future, negative for past). Required if action is 'relative'."),

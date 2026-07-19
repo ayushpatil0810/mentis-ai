@@ -3,7 +3,7 @@ import { ToolConfig } from "@/types/tool";
 
 export const fetchUrlTool: ToolConfig<any> = {
   name: "fetchUrl",
-  description: "Fetch the content of a public webpage and extract clean, readable text suitable for AI context. Strips navigation, footers, scripts, and styles.",
+  description: "Fetch a public webpage's main text. Use when the user provides a URL and asks to summarize, analyze, or explain its contents. Do not guess web contents or fetch private/local IPs. Returns page title and cleaned markdown-like text.",
   parameters: z.object({
     url: z.string().url().describe("The absolute URL of the webpage to fetch."),
   }),

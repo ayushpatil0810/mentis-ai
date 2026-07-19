@@ -3,7 +3,7 @@ import { ToolConfig } from "@/types/tool";
 
 export const webSearchTool: ToolConfig<any> = {
   name: "webSearch",
-  description: "Search the web for information matching the query. Returns structured results with title, URL, and snippet.",
+  description: "Search the web for real-time, current, or changing information (e.g. latest news, software versions, release notes, documentation, pricing). Do not use for static common knowledge or if freshness is not important. Returns titles, URLs, and snippets.",
   parameters: z.object({
     query: z.string().describe("The search query to look up on the web."),
   }),

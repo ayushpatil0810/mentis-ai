@@ -68,3 +68,90 @@ export function mapDbMessagesToUiMessages(dbMessages: any[]): any[] {
   
   return uiMessages;
 }
+
+/**
+ * Safely slices database messages to keep the last `maxMessages`
+ * while ensuring that we do not break apart tool call/result pairs.
+ */
+export function trimDbMessages(messages: any[], maxMessages: number = 20): any[] {
+  if (messages.length <= maxMessages) return messages;
+
+  let cutIndex = messages.length - maxMessages;
+
+  // 1. If the message at cutIndex is a tool result, expand the window backwards
+  // to include the preceding assistant tool-call.
+  while (cutIndex > 0 && messages[cutIndex].role === "tool") {
+    cutIndex--;
+  }
+
+  // 2. If the message just before the cut (cutIndex - 1) is an assistant message
+  // containing tool calls, we must include it so we don't end up with dangling tool results.
+  while (
+    cutIndex > 0 &&
+    messages[cutIndex - 1].role === "assistant" &&
+    messages[cutIndex - 1].parts &&
+    Array.isArray(messages[cutIndex - 1].parts) &&
+    messages[cutIndex - 1].parts.some((p: any) => p.type === "tool-call")
+  ) {
+    cutIndex--;
+  }
+
+  return messages.slice(cutIndex);
+}
+
+/**
+ * Context compression strategy.
+ * Keeps recent messages verbatim and compresses older messages to minimize tokens.
+ */
+export function compressMessageHistory(messages: any[], keepVerbatim: number = 10): any[] {
+  if (messages.length <= keepVerbatim) return messages;
+
+  return messages.map((msg, index) => {
+    // Keep recent messages verbatim
+    if (index >= messages.length - keepVerbatim) {
+      return msg;
+    }
+
+    // Clone message to avoid modifying active reference
+    const compressed = { ...msg };
+
+    if (msg.role === "tool") {
+      // Compress massive tool output payload
+      compressed.content = "[Tool output compressed for context optimization]";
+      if (compressed.parts && Array.isArray(compressed.parts)) {
+        compressed.parts = compressed.parts.map((p: any) => ({
+          ...p,
+          result: { status: "success", summary: "Data trimmed" },
+        }));
+      }
+    } else if (msg.role === "assistant") {
+      // Truncate long assistant text response
+      if (typeof compressed.content === "string" && compressed.content.length > 200) {
+        compressed.content = compressed.content.substring(0, 200) + "... [Response compressed]";
+      }
+      if (compressed.parts && Array.isArray(compressed.parts)) {
+        compressed.parts = compressed.parts.map((p: any) => {
+          if (p.type === "text" && p.text && p.text.length > 200) {
+            return { ...p, text: p.text.substring(0, 200) + "... [Response compressed]" };
+          }
+          return p;
+        });
+      }
+    } else if (msg.role === "user") {
+      // Truncate long user text inputs
+      if (typeof compressed.content === "string" && compressed.content.length > 300) {
+        compressed.content = compressed.content.substring(0, 300) + "... [User prompt compressed]";
+      }
+      if (compressed.parts && Array.isArray(compressed.parts)) {
+        compressed.parts = compressed.parts.map((p: any) => {
+          if (p.type === "text" && p.text && p.text.length > 300) {
+            return { ...p, text: p.text.substring(0, 300) + "... [User prompt compressed]" };
+          }
+          return p;
+        });
+      }
+    }
+
+    return compressed;
+  });
+}

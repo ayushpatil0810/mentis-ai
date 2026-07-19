@@ -9,6 +9,8 @@ import { z } from "zod";
 import { getTools } from "@/server/tools/registry";
 import { generateTitle } from "@/server/tools/title-generator";
 import { buildSystemPrompt } from "@/server/prompts/builder";
+import { trimDbMessages, compressMessageHistory } from "@/lib/tools/history-utils";
+import { analyzePromptTokens } from "@/server/prompts/analyzer";
 
 const chatPayloadSchema = z.object({
   chatId: z.string().min(1),
@@ -57,8 +59,14 @@ export async function POST(req: Request) {
     // 2. Load the complete trusted conversation history from the database
     const dbMessages = await messageService.getMessagesByChatId(user.id, chatId);
 
+    // Safely trim message history to 20 messages to keep input window small
+    const trimmedDbMessages = trimDbMessages(dbMessages, 20);
+
+    // Compress older message payloads to prune huge tool results and responses
+    const compressedDbMessages = compressMessageHistory(trimmedDbMessages, 10);
+
     // 3. Convert history into the format required by the Vercel AI SDK (ModelMessage/CoreMessage)
-    const coreMessages: any[] = dbMessages.map((msg) => {
+    const coreMessages: any[] = compressedDbMessages.map((msg) => {
       // In Vercel AI SDK, the server-side message type (ModelMessage) uses the 'content' field
       // to hold the parts array (text parts, tool-calls, tool-results, etc.) if it exists.
       const content = (msg.parts && Array.isArray(msg.parts) && msg.parts.length > 0)
@@ -96,13 +104,19 @@ export async function POST(req: Request) {
     // Load user custom prompt if available
     const chatObj = await chatService.getChatById(user.id, chatId).catch(() => null);
     
-    // Build dynamic system prompt using Prompt Builder
-    const registeredToolNames = Object.keys(tools);
-    let systemPrompt = buildSystemPrompt(registeredToolNames);
+    // Build dynamic system prompt using Prompt Builder and target provider details
+    let systemPrompt = buildSystemPrompt({ provider: targetProviderName });
     
     if (chatObj?.systemPrompt) {
       systemPrompt = `${systemPrompt}\n\n# User-defined Custom Instructions\n${chatObj.systemPrompt}`;
     }
+
+    // Run dynamic runtime token analysis
+    analyzePromptTokens({
+      systemPrompt,
+      tools,
+      messages: coreMessages,
+    });
 
     // 5. Stream the AI response
     const result = streamText({

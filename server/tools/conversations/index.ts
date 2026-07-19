@@ -6,7 +6,7 @@ import { eq, and, like, desc } from "drizzle-orm";
 
 export const searchConversationsTool: ToolConfig<any> = {
   name: "searchConversations",
-  description: "Search the authenticated user's conversations/chats. Supports filtering by title query, pinned, or archived status.",
+  description: "Search the conversation titles and chat lists of the active user. Use when user references previous chats or general conversation history. Returns list of conversation metadata (id, title, timestamps).",
   parameters: z.object({
     query: z.string().optional().describe("Substring match for the conversation title."),
     pinned: z.boolean().optional().describe("Filter for pinned conversations only."),

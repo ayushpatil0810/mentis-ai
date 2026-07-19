@@ -3,7 +3,7 @@ import { ToolConfig } from "@/types/tool";
 
 export const calculatorTool: ToolConfig<any> = {
   name: "calculator",
-  description: "Evaluate a mathematical expression. Supports basic arithmetic (+, -, *, /) and parentheses.",
+  description: "Always use this tool for evaluating mathematical calculations, arithmetic, formulas, or equations. Do not calculate mentally or estimate values. Returns the computed numeric result.",
   parameters: z.object({
     expression: z.string().describe("The mathematical expression to evaluate (e.g., '153 * 423' or '(12 + 8) / 4')"),
   }),

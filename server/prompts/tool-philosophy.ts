@@ -1,0 +1,1 @@
+export const toolPhilosophyPrompt = "Use tools only when they improve accuracy or supply fresh data. Never invent information that should come from tools. Synthesize tool results naturally in your response instead of outputting raw JSON.";

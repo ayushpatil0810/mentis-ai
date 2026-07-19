@@ -1,61 +1,37 @@
 import { identityPrompt } from "./identity";
 import { behaviorPrompt } from "./behavior";
-import { reasoningPrompt } from "./reasoning";
-import { responseStylePrompt } from "./response-style";
+import { toolPhilosophyPrompt } from "./tool-philosophy";
 import { safetyPrompt } from "./safety";
 import { applicationPrompt } from "./application";
+import { getProviderPrompt } from "./providers";
 
-// Import tool-specific prompts
-import { calculatorPrompt } from "./tools/calculator";
-import { datetimePrompt } from "./tools/datetime";
-import { webSearchPrompt } from "./tools/web-search";
-import { fetchUrlPrompt } from "./tools/fetch-url";
-import { conversationSearchPrompt } from "./tools/conversation-search";
-import { messageSearchPrompt } from "./tools/message-search";
-
-const toolPrompts: Record<string, string> = {
-  calculator: calculatorPrompt,
-  datetime: datetimePrompt,
-  webSearch: webSearchPrompt,
-  fetchUrl: fetchUrlPrompt,
-  searchConversations: conversationSearchPrompt,
-  searchMessages: messageSearchPrompt,
-};
+// Cache the combined base prompt to avoid redundant runtime string allocations
+const CACHED_BASE_PROMPT = [
+  identityPrompt,
+  behaviorPrompt,
+  toolPhilosophyPrompt,
+  safetyPrompt,
+  applicationPrompt,
+].join("\n\n");
 
 /**
- * Builds a dynamic and modular system prompt based on registered tools.
- * Avoids creating a single monolithic string, making it easy to maintain and extend.
+ * Dynamically assembles the system prompt.
+ * Inherits a cached base prompt and appends provider-specific adapter hints.
  * 
- * @param registeredToolsNames List of names of the tools that are currently registered/active.
- * @returns Combined system prompt string.
+ * @param options Configuration options including target AI provider name.
+ * @returns Combined optimized system prompt string.
  */
-export function buildSystemPrompt(registeredToolsNames: string[]): string {
-  const sections = [
-    identityPrompt.trim(),
-    behaviorPrompt.trim(),
-    reasoningPrompt.trim(),
-    responseStylePrompt.trim(),
-    safetyPrompt.trim(),
-    applicationPrompt.trim(),
-  ];
+export function buildSystemPrompt(options?: {
+  provider?: string;
+  registeredToolsNames?: string[]; // Kept for backwards compatibility
+}): string {
+  const sections = [CACHED_BASE_PROMPT];
 
-  // Dynamically include guidelines for registered tools
-  const activeToolGuidelines: string[] = [];
-  
-  for (const name of registeredToolsNames) {
-    const promptSection = toolPrompts[name];
-    if (promptSection) {
-      activeToolGuidelines.push(promptSection.trim());
+  if (options?.provider) {
+    const providerPrompt = getProviderPrompt(options.provider);
+    if (providerPrompt) {
+      sections.push(providerPrompt);
     }
-  }
-
-  if (activeToolGuidelines.length > 0) {
-    const toolsPromptBlock = `
-# Specific Tool Guidelines
-You have access to the following active tools. You must use them in accordance with their guidelines:
-${activeToolGuidelines.join("\n")}
-`;
-    sections.push(toolsPromptBlock.trim());
   }
 
   return sections.join("\n\n");

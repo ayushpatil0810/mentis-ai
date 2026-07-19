@@ -14,6 +14,26 @@ export const MessageItem = memo(function MessageItem({ message }: { message: any
     (message.parts && Array.isArray(message.parts) ? message.parts.map((p: any) => p.text || "").join("") : "") || 
     message.text || "";
 
+  // Dynamically extract toolInvocations from message.toolInvocations or message.parts
+  const toolInvocations = message.toolInvocations || 
+    (message.parts && Array.isArray(message.parts) 
+      ? message.parts
+          .filter((p: any) => p.type?.startsWith("tool-") || p.type === "dynamic-tool")
+          .map((p: any) => {
+            const toolName = p.type === "dynamic-tool" ? p.toolName : p.type.replace(/^tool-/, "");
+            return {
+              toolCallId: p.toolCallId,
+              toolName,
+              args: p.input,
+              input: p.input,
+              state: p.state === "output-available" ? "result" : (p.state === "output-error" ? "result" : "call"),
+              result: p.state === "output-error" ? { status: "error", error: { message: p.errorText } } : p.output,
+              output: p.output,
+              errorText: p.errorText,
+            };
+          }) 
+      : []) || [];
+
   const [liked, setLiked] = useState<boolean | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -43,14 +63,14 @@ export const MessageItem = memo(function MessageItem({ message }: { message: any
         )}>
           {isUser ? (
             <div className="whitespace-pre-wrap">{textContent}</div>
-          ) : (message.id === "loading" || (!textContent && message.role === "assistant" && !message.toolInvocations?.length)) ? (
+          ) : (message.id === "loading" || (!textContent && message.role === "assistant" && !toolInvocations.length)) ? (
             <Loader variant="typing" size="sm" className="opacity-70" />
           ) : (
             <div className="flex flex-col gap-2 w-full">
               {textContent && <MessageRenderer content={textContent} />}
-              {message.toolInvocations && message.toolInvocations.length > 0 && (
+              {toolInvocations && toolInvocations.length > 0 && (
                 <div className="flex flex-col gap-1 w-full mt-1">
-                  {message.toolInvocations.map((toolInvocation: any) => (
+                  {toolInvocations.map((toolInvocation: any) => (
                     <ToolCall key={toolInvocation.toolCallId} toolInvocation={toolInvocation} />
                   ))}
                 </div>

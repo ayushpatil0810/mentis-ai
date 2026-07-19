@@ -6,7 +6,7 @@ import { eq, and, desc, sql } from "drizzle-orm";
 
 export const searchMessagesTool: ToolConfig<any> = {
   name: "searchMessages",
-  description: "Search the message history of the authenticated user using PostgreSQL Full-Text Search. Returns matches with conversation context.",
+  description: "Search inside the text of past chat messages across all user history. Use when user asks 'What did I say about X?' or to look up specific statements or past discussions. Returns message preview and conversation details.",
   parameters: z.object({
     query: z.string().min(1).describe("The search query terms to match against message content."),
     limit: z.number().int().min(1).max(50).default(10).describe("Maximum number of matching messages to return."),
