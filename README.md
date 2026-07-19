@@ -94,7 +94,7 @@ flowchart TD
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-org/mentis-ai.git
+   git clone https://github.com/ayushpatil0810/mentis-ai.git
    cd mentis-ai
    ```
 

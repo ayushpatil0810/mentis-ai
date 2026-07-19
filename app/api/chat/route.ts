@@ -1,4 +1,4 @@
-import { streamText, isStepCount } from "ai";
+import { streamText, isStepCount, createUIMessageStreamResponse, toUIMessageStream } from "ai";
 import { requireAuth } from "@/lib/auth/auth-utils";
 import * as messageService from "@/lib/services/message";
 import * as chatService from "@/lib/services/chat";
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
         return new Response("Invalid message format", { status: 400 });
       }
 
-      const content = latestMessage.content || (latestMessage.parts && Array.isArray(latestMessage.parts) ? latestMessage.parts.map((p: any) => p.text || '').join('') : "") || latestMessage.text;
+      const content = latestMessage.content || (latestMessage.parts && Array.isArray(latestMessage.parts) ? (latestMessage.parts as Array<{ text?: string }>).map((p) => p.text || '').join('') : "") || latestMessage.text;
 
       if (!content) {
         return new Response("Missing message content", { status: 400 });
@@ -98,7 +98,7 @@ export async function POST(req: Request) {
     const compressedDbMessages = compressMessageHistory(trimmedDbMessages, 10);
 
     // 3. Convert history into the format required by the Vercel AI SDK (ModelMessage/CoreMessage)
-    const coreMessages: any[] = compressedDbMessages.map((msg) => {
+    const coreMessages = compressedDbMessages.map((msg) => {
       const content = (msg.parts && Array.isArray(msg.parts) && msg.parts.length > 0)
         ? msg.parts
         : msg.content;
@@ -223,15 +223,27 @@ export async function POST(req: Request) {
       },
     });
 
-    return result.toUIMessageStreamResponse();
-  } catch (error: any) {
+    return createUIMessageStreamResponse({
+      stream: toUIMessageStream({
+        stream: result.stream,
+        onError: (error) => {
+          logger.error("Chat Stream Error", error);
+          if (error instanceof Error) {
+            return error.message;
+          }
+          return String(error);
+        },
+      }),
+    });
+  } catch (error: unknown) {
     logger.error("Chat API Error", error);
-    if (error.name === "RateLimitError") {
+    const err = error as Error & { name?: string };
+    if (err.name === "RateLimitError") {
       return new Response("Too many requests", { status: 429 });
     }
-    if (error.message?.includes("Unauthorized") || error.name === "AuthError") {
+    if (err.message?.includes("Unauthorized") || err.name === "AuthError") {
       return new Response("Unauthorized", { status: 401 });
     }
-    return new Response(error.message || "Internal Server Error", { status: 500 });
+    return new Response(err.message || "Internal Server Error", { status: 500 });
   }
 }
