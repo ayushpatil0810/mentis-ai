@@ -51,3 +51,5 @@ CLAUDE.md
 PRD.md
 DESIGN.md
 skills-lock.json
+.vercel
+.env*

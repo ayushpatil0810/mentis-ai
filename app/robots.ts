@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/api/', '/settings/'],
     },
-    sitemap: 'https://mentis-ai.example.com/sitemap.xml',
+    sitemap: 'https://mentis.ayushpatil.in/sitemap.xml',
   };
 }

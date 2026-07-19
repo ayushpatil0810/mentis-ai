@@ -18,23 +18,32 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mentis AI - Next-generation AI Assistant",
-  description: "An elegant, fast, and feature-rich AI assistant powered by Mentis.",
+  title: {
+    default: "Mentis AI - Next-generation AI Assistant",
+    template: "%s | Mentis AI",
+  },
+  description: "An elegant, fast, and feature-rich AI assistant powered by Mentis. Experience seamless conversations with multiple AI models in a secure environment.",
   openGraph: {
-    title: "Mentis AI",
-    description: "An elegant, fast, and feature-rich AI assistant.",
-    url: "https://mentis-ai.example.com",
+    title: "Mentis AI - Next-generation AI Assistant",
+    description: "An elegant, fast, and feature-rich AI assistant powered by Mentis. Experience seamless conversations with multiple AI models in a secure environment.",
+    url: "https://mentis.ayushpatil.in",
     siteName: "Mentis AI",
     locale: "en_US",
     type: "website",
+    images: [
+      {
+        url: "/logo.png",
+        width: 800,
+        height: 800,
+        alt: "Mentis AI Logo",
+      }
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Mentis AI",
-    description: "An elegant, fast, and feature-rich AI assistant.",
-  },
-  icons: {
-    icon: "/favicon.ico",
+    title: "Mentis AI - Next-generation AI Assistant",
+    description: "An elegant, fast, and feature-rich AI assistant powered by Mentis. Experience seamless conversations with multiple AI models in a secure environment.",
+    images: ["/logo.png"],
   },
 };
 
