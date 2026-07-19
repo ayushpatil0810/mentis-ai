@@ -43,7 +43,7 @@ interface MessageData {
   toolInvocations?: unknown[];
 }
 
-export function stripEmojis(text: string): string {
+function stripEmojis(text: string): string {
   if (!text) return "";
   try {
     return text

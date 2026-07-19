@@ -64,4 +64,3 @@ export function getTools(context: ToolContext): Record<string, Tool<any, any>> {
 
   return aiTools;
 }
-export { registeredTools };

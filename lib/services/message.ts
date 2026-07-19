@@ -77,7 +77,7 @@ export async function getMessagesByChatId(userId: string, chatId: string) {
     .orderBy(asc(message.createdAt));
 }
 
-export async function getMessageById(userId: string, messageId: string) {
+async function getMessageById(userId: string, messageId: string) {
   if (!userId) throw new AuthError();
   
   const [existingMessage] = await db.select()
