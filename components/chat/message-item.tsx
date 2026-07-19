@@ -5,6 +5,8 @@ import { Copy01Icon, ThumbsUpIcon, ThumbsDownIcon } from "hugeicons-react";
 import { toast } from "sonner";
 import { MessageRenderer } from "./message-renderer";
 import { cn } from "@/lib/utils";
+import { Loader } from "@/components/ui/loader";
+import { ToolCall } from "./tool-call";
 
 export const MessageItem = memo(function MessageItem({ message }: { message: any }) {
   const isUser = message.role === "user";
@@ -37,12 +39,23 @@ export const MessageItem = memo(function MessageItem({ message }: { message: any
           "px-5 py-3.5",
           isUser 
             ? "bg-foreground text-background rounded-3xl rounded-tr-sm text-[15px] font-medium leading-relaxed" 
-            : "bg-transparent text-foreground text-[15px]"
+            : "bg-transparent text-foreground text-[15px] w-full"
         )}>
           {isUser ? (
             <div className="whitespace-pre-wrap">{textContent}</div>
+          ) : (message.id === "loading" || (!textContent && message.role === "assistant" && !message.toolInvocations?.length)) ? (
+            <Loader variant="typing" size="sm" className="opacity-70" />
           ) : (
-            <MessageRenderer content={textContent} />
+            <div className="flex flex-col gap-2 w-full">
+              {textContent && <MessageRenderer content={textContent} />}
+              {message.toolInvocations && message.toolInvocations.length > 0 && (
+                <div className="flex flex-col gap-1 w-full mt-1">
+                  {message.toolInvocations.map((toolInvocation: any) => (
+                    <ToolCall key={toolInvocation.toolCallId} toolInvocation={toolInvocation} />
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
         

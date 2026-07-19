@@ -5,17 +5,18 @@ import { getMessagesAction } from "@/app/actions/chat";
 import { MessageList } from "./message-list";
 import { ChatInput } from "./chat-input";
 import { useChat } from "@ai-sdk/react";
-import { TextStreamChatTransport } from "ai";
-import { useEffect, useState, useRef } from "react";
+import { DefaultChatTransport } from "ai";
+import { useEffect, useState } from "react";
 import { Loading01Icon } from "hugeicons-react";
 import { ChatContainerRoot } from "@/components/ui/chat-container";
 import { ModelSelector } from "./model-selector";
+import { mapDbMessagesToUiMessages } from "@/lib/tools/history-utils";
 
 export function ChatWindow({ chatId }: { chatId: string }) {
   const queryClient = useQueryClient();
   const [input, setInput] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
-  const endRef = useRef<HTMLDivElement>(null);
+
 
   const { data: response, isLoading: isFetching } = useQuery({
     queryKey: ["messages", chatId],
@@ -26,7 +27,7 @@ export function ChatWindow({ chatId }: { chatId: string }) {
   const dbMessages = response?.success ? response.data : undefined;
 
   const { messages, sendMessage, status, stop, setMessages } = useChat({
-    transport: new TextStreamChatTransport({
+    transport: new DefaultChatTransport({
       api: "/api/chat",
       body: { chatId, modelId: selectedModel },
     }),
@@ -37,12 +38,7 @@ export function ChatWindow({ chatId }: { chatId: string }) {
 
   useEffect(() => {
     if (dbMessages && messages.length === 0) {
-      setMessages(dbMessages.map(m => ({
-        id: m.id,
-        role: m.role as "system" | "user" | "assistant" | "data" | "tool",
-        content: m.content,
-        createdAt: m.createdAt,
-      })) as any);
+      setMessages(mapDbMessagesToUiMessages(dbMessages));
     }
   }, [dbMessages, messages.length, setMessages]);
 
@@ -54,13 +50,7 @@ export function ChatWindow({ chatId }: { chatId: string }) {
     }
   }, [sendMessage, isFetching]);
   
-  useEffect(() => {
-    if (messages.length > 0) {
-      setTimeout(() => {
-        endRef.current?.scrollIntoView({ behavior: "smooth" });
-      }, 100);
-    }
-  }, [messages.length, status]);
+
 
   const isLoading = status === "submitted" || status === "streaming";
 
@@ -73,10 +63,7 @@ export function ChatWindow({ chatId }: { chatId: string }) {
             <Loading01Icon className="animate-spin h-5 w-5 text-muted-foreground/50" />
           </div>
         ) : (
-          <>
-            <MessageList messages={messages} isLoading={isLoading} />
-            <div ref={endRef} className="h-40" />
-          </>
+          <MessageList messages={messages} isLoading={isLoading} />
         )}
       </ChatContainerRoot>
       

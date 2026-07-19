@@ -1,10 +1,14 @@
-import { streamText } from "ai";
+import { streamText, isStepCount } from "ai";
 import { requireAuth } from "@/lib/auth/auth-utils";
 import * as messageService from "@/lib/services/message";
+import * as chatService from "@/lib/services/chat";
 import { getProvider } from "@/lib/ai/providers";
 import { logger } from "@/lib/utils/logger";
 import { rateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
+import { getTools } from "@/server/tools/registry";
+import { generateTitle } from "@/server/tools/title-generator";
+import { buildSystemPrompt } from "@/server/prompts/builder";
 
 const chatPayloadSchema = z.object({
   chatId: z.string().min(1),
@@ -53,11 +57,19 @@ export async function POST(req: Request) {
     // 2. Load the complete trusted conversation history from the database
     const dbMessages = await messageService.getMessagesByChatId(user.id, chatId);
 
-    // 3. Convert history into the format required by the Vercel AI SDK (CoreMessage)
-    const coreMessages: any[] = dbMessages.map((msg) => ({
-      role: msg.role as "system" | "user" | "assistant" | "tool",
-      content: msg.content,
-    }));
+    // 3. Convert history into the format required by the Vercel AI SDK (ModelMessage/CoreMessage)
+    const coreMessages: any[] = dbMessages.map((msg) => {
+      // In Vercel AI SDK, the server-side message type (ModelMessage) uses the 'content' field
+      // to hold the parts array (text parts, tool-calls, tool-results, etc.) if it exists.
+      const content = (msg.parts && Array.isArray(msg.parts) && msg.parts.length > 0)
+        ? msg.parts
+        : msg.content;
+      
+      return {
+        role: msg.role as "system" | "user" | "assistant" | "tool",
+        content,
+      };
+    });
 
     // 4. Resolve the correct provider and model based on modelId
     // modelId format: "provider/model" (e.g. "openai/gpt-4o-mini", "default/gpt-4o-mini")
@@ -79,23 +91,64 @@ export async function POST(req: Request) {
     }
 
     const provider = await getProvider(user.id, targetProviderName);
+    const tools = getTools({ userId: user.id });
+
+    // Load user custom prompt if available
+    const chatObj = await chatService.getChatById(user.id, chatId).catch(() => null);
+    
+    // Build dynamic system prompt using Prompt Builder
+    const registeredToolNames = Object.keys(tools);
+    let systemPrompt = buildSystemPrompt(registeredToolNames);
+    
+    if (chatObj?.systemPrompt) {
+      systemPrompt = `${systemPrompt}\n\n# User-defined Custom Instructions\n${chatObj.systemPrompt}`;
+    }
 
     // 5. Stream the AI response
     const result = streamText({
       model: provider(targetModelName),
       messages: coreMessages,
+      system: systemPrompt,
+      tools,
+      stopWhen: isStepCount(5),
       onFinish: async (event) => {
-        // 6. Persist the complete assistant response only after streaming successfully completes.
-        await messageService.createMessage(user.id, {
-          chatId,
-          role: "assistant",
-          content: event.text,
-          status: "complete",
-        });
+        // 6. Persist all generated messages (assistant replies and tool results) to the database
+        const messagesToSave = event.responseMessages || [];
+        if (messagesToSave.length > 0) {
+          for (const msg of messagesToSave) {
+            await messageService.createMessage(user.id, {
+              chatId,
+              role: msg.role,
+              content: typeof msg.content === "string" ? msg.content : "",
+              parts: typeof msg.content !== "string" ? msg.content : undefined,
+              status: "complete",
+            });
+          }
+        } else {
+          // Fallback if responseMessages is empty or undefined
+          await messageService.createMessage(user.id, {
+            chatId,
+            role: "assistant",
+            content: event.text,
+            status: "complete",
+          });
+        }
+
+        // 7. Generate title asynchronously if this is the first message exchange
+        if (dbMessages.length <= 1) {
+          generateTitle(
+            chatId,
+            user.id,
+            content,
+            event.text,
+            targetProviderName,
+            targetModelName
+          ).catch((err) => logger.error("Title generation background error", err));
+        }
       },
     });
 
-    return result.toTextStreamResponse();
+    return result.toUIMessageStreamResponse();
   } catch (error: any) {
     logger.error("Chat API Error", error);
     if (error.name === "RateLimitError") {
