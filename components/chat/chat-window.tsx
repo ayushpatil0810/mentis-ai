@@ -26,13 +26,16 @@ export function ChatWindow({ chatId }: { chatId: string }) {
 
   const dbMessages = response?.success ? response.data : undefined;
 
-  const { messages, sendMessage, status, stop, setMessages } = useChat({
+  const { messages, sendMessage, status, stop, setMessages, error } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/chat",
       body: { chatId, modelId: selectedModel },
     }),
     onFinish: () => {
       queryClient.invalidateQueries({ queryKey: ["chats"] });
+    },
+    onError: (err) => {
+      console.error("Chat window error:", err);
     }
   });
 
@@ -63,7 +66,7 @@ export function ChatWindow({ chatId }: { chatId: string }) {
             <Loading01Icon className="animate-spin h-5 w-5 text-muted-foreground/50" />
           </div>
         ) : (
-          <MessageList messages={messages} isLoading={isLoading} />
+          <MessageList messages={messages} isLoading={isLoading} error={error} />
         )}
       </ChatContainerRoot>
       
@@ -74,7 +77,7 @@ export function ChatWindow({ chatId }: { chatId: string }) {
       
       <div className="absolute bottom-6 left-0 right-0 px-4 z-20 pointer-events-none">
         <div className="max-w-3xl mx-auto w-full flex flex-col gap-2 pointer-events-auto">
-          <div className="rounded-2xl bg-background/70 backdrop-blur-2xl border border-border/60 shadow-lg p-2 transition-all focus-within:shadow-xl focus-within:border-border focus-within:bg-background/90">
+          <div className="rounded-2xl bg-background/70 backdrop-blur-2xl border border-border/60 shadow-lg p-1.5 transition-all focus-within:shadow-xl focus-within:border-border focus-within:bg-background/90">
             <ChatInput 
               value={input}
               onChange={setInput}

@@ -11,9 +11,9 @@ export interface AIModel {
 
 export async function getAvailableModelsAction(): Promise<AIModel[]> {
   const { user } = await requireAuth();
-  
+
   const models: AIModel[] = [];
-  
+
   // Try to get all keys
   const [openAiKey, anthropicKey, geminiKey] = await Promise.all([
     getDecryptedApiKey(user.id, "openai"),
@@ -41,12 +41,16 @@ export async function getAvailableModelsAction(): Promise<AIModel[]> {
       if (response.ok) {
         const data = await response.json();
         // Filter out non-chat models roughly (OpenAI lists a lot of whisper, tts, embedding models)
-        const chatModels = data.data.filter((m: any) => 
-          m.id.startsWith("gpt-") || m.id.startsWith("o1-") || m.id.startsWith("o3-") || m.id.startsWith("chatgpt-")
+        const chatModels = data.data.filter(
+          (m: any) =>
+            m.id.startsWith("gpt-") ||
+            m.id.startsWith("o1-") ||
+            m.id.startsWith("o3-") ||
+            m.id.startsWith("chatgpt-"),
         );
-        
+
         chatModels.sort((a: any, b: any) => b.created - a.created); // newest first
-        
+
         for (const m of chatModels) {
           models.push({
             id: `openai/${m.id}`,
@@ -64,15 +68,20 @@ export async function getAvailableModelsAction(): Promise<AIModel[]> {
   if (anthropicKey) {
     // Fallback static list in case API doesn't support models endpoint yet or fails
     const anthropicModels = [
-      { id: "anthropic/claude-3-7-sonnet-20250219", name: "Claude 3.7 Sonnet" },
-      { id: "anthropic/claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet (Latest)" },
-      { id: "anthropic/claude-3-5-sonnet-20240620", name: "Claude 3.5 Sonnet" },
-      { id: "anthropic/claude-3-5-haiku-20241022", name: "Claude 3.5 Haiku" },
-      { id: "anthropic/claude-3-opus-20240229", name: "Claude 3 Opus" },
-      { id: "anthropic/claude-3-sonnet-20240229", name: "Claude 3 Sonnet" },
-      { id: "anthropic/claude-3-haiku-20240307", name: "Claude 3 Haiku" },
+      { id: "anthropic/claude-sonnet-5", name: "Claude Sonnet 5" },
+      { id: "anthropic/claude-opus-4.7", name: "Claude Opus 4.7" },
+      { id: "anthropic/claude-sonnet-4.6", name: "Claude Sonnet 4.6" },
+      { id: "anthropic/claude-opus-4.6", name: "Claude Opus 4.6" },
+      { id: "anthropic/claude-haiku-4.5", name: "Claude Haiku 4.5" },
+      { id: "anthropic/claude-opus-4.5", name: "Claude Opus 4.5" },
+      { id: "anthropic/claude-3.7-sonnet", name: "Claude 3.7 Sonnet (Legacy)" },
+      { id: "anthropic/claude-3.5-sonnet", name: "Claude 3.5 Sonnet (Legacy)" },
+      { id: "anthropic/claude-3.5-haiku", name: "Claude 3.5 Haiku (Legacy)" },
+      { id: "anthropic/claude-3-opus", name: "Claude 3 Opus (Legacy)" },
+      { id: "anthropic/claude-3-sonnet", name: "Claude 3 Sonnet (Legacy)" },
+      { id: "anthropic/claude-3-haiku", name: "Claude 3 Haiku (Legacy)" },
     ];
-    
+
     for (const m of anthropicModels) {
       models.push({
         ...m,
@@ -84,15 +93,18 @@ export async function getAvailableModelsAction(): Promise<AIModel[]> {
   // 3. Fetch Gemini Models
   if (geminiKey) {
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`);
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`,
+      );
       if (response.ok) {
         const data = await response.json();
         // Filter out generateContent supported models
-        const chatModels = data.models.filter((m: any) => 
-          m.supportedGenerationMethods?.includes("generateContent") && 
-          (m.name.includes("gemini"))
+        const chatModels = data.models.filter(
+          (m: any) =>
+            m.supportedGenerationMethods?.includes("generateContent") &&
+            m.name.includes("gemini"),
         );
-        
+
         for (const m of chatModels) {
           const id = m.name.replace("models/", "");
           models.push({

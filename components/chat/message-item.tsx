@@ -54,11 +54,10 @@ export const MessageItem = memo(function MessageItem({ message }: { message: any
         isUser ? "items-end max-w-[80%]" : "items-start max-w-full md:max-w-[90%]"
       )}>
         
-        {/* Content Bubble */}
         <div className={cn(
           "px-5 py-3.5",
           isUser 
-            ? "bg-foreground text-background rounded-3xl rounded-tr-sm text-[15px] font-medium leading-relaxed" 
+            ? "bg-muted text-foreground border border-border/40 rounded-2xl rounded-tr-sm text-[15px] font-normal leading-relaxed shadow-sm" 
             : "bg-transparent text-foreground text-[15px] w-full"
         )}>
           {isUser ? (

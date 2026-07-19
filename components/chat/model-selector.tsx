@@ -97,6 +97,11 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[240px] p-1.5 rounded-2xl border-border/50 shadow-xl bg-background/95 backdrop-blur-md">
+        <div className="mb-1.5 mx-1 p-2 bg-muted/40 rounded-xl border border-border/30">
+          <p className="text-[10.5px] text-muted-foreground/90 leading-snug text-center">
+            Note: Only text-based models are fully supported at this time. Audio and image models may not work correctly.
+          </p>
+        </div>
         {Object.entries(groupedModels).map(([provider, providerModels], idx) => (
           <DropdownMenuGroup key={provider}>
             <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground/70 px-2 py-1.5">

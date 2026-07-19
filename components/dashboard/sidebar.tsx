@@ -198,13 +198,13 @@ export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesk
           {/* Global Actions */}
           <div className="px-3 pt-4 pb-4 shrink-0 flex flex-col gap-1">
             <button 
-              className="flex items-center gap-2.5 h-9 px-3 w-full rounded-lg bg-foreground text-background hover:opacity-90 transition-all text-[13px] font-medium shadow-sm active:scale-[0.98]"
+              className="group flex items-center gap-2.5 h-9 px-3.5 w-full rounded-xl bg-background border border-border/50 text-foreground hover:bg-muted/70 hover:border-border transition-all duration-150 text-[13px] font-medium shadow-sm active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               onClick={() => {
                 router.push('/');
                 setIsMobileMenuOpen(false);
               }}
             >
-              <Edit02Icon className="w-4 h-4" />
+              <Edit02Icon className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors duration-150" />
               <span>New Chat</span>
             </button>
             

@@ -69,12 +69,20 @@ export async function getApiKeys(userId: string) {
   .where(eq(apiKey.userId, userId));
 }
 
-export async function getDecryptedApiKey(userId: string, provider: string) {
+export async function getDecryptedApiKey(userId: string, provider: string, onlyEnabled = true) {
   if (!userId) throw new AuthError();
+  
+  const conditions = [
+    eq(apiKey.userId, userId),
+    eq(apiKey.provider, provider)
+  ];
+  if (onlyEnabled) {
+    conditions.push(eq(apiKey.isEnabled, true));
+  }
   
   const [keyRecord] = await db.select()
     .from(apiKey)
-    .where(and(eq(apiKey.userId, userId), eq(apiKey.provider, provider)));
+    .where(and(...conditions));
     
   if (!keyRecord) return null;
   

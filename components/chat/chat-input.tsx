@@ -30,13 +30,13 @@ export function ChatInput({ value, onChange, onSubmit, isLoading, onStop, placeh
         onValueChange={onChange}
         isLoading={isLoading}
         onSubmit={onSubmit}
-        className="w-full relative px-2 py-1"
+        className="w-full relative border-none bg-transparent shadow-none p-0 focus-within:ring-0"
       >
         <PromptInputTextarea 
           placeholder={placeholder || "Ask Anything"} 
-          className={cn("px-4 py-2.5 text-[15px]", !isExpanded && "pr-12")} 
+          className={cn("px-3.5 py-2 text-[15px]", !isExpanded && "pr-12")} 
         />
-        <PromptInputActions className={cn("justify-end items-center gap-1.5", isExpanded ? "pt-2 pb-1 pr-2" : "absolute right-2 bottom-2")}>
+        <PromptInputActions className={cn("justify-end items-center gap-1.5", isExpanded ? "pt-2 pb-1 pr-2" : "absolute right-1.5 top-1/2 -translate-y-1/2")}>
           {modelSelector && (
             <div className="shrink-0">
               {modelSelector}

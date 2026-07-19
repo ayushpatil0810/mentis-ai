@@ -79,7 +79,7 @@ export default function NewChatPage() {
           </div>
           
           <div className="w-full flex flex-col gap-3 relative z-20">
-            <div className="w-full relative shadow-[0_8px_32px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_32px_rgba(255,255,255,0.02)] rounded-[1.5rem] transition-shadow duration-300 hover:shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
+            <div className="w-full relative rounded-2xl bg-background/70 backdrop-blur-2xl border border-border/60 shadow-lg p-1.5 transition-all focus-within:shadow-xl focus-within:border-border focus-within:bg-background/90">
               <ChatInput 
                 value={content}
                 onChange={setContent}

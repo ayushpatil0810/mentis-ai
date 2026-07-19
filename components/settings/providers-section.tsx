@@ -43,6 +43,7 @@ export function ProvidersSection({ settings, apiKeys, onUpdateKeys, onUpdateSett
   const [testing, setTesting] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [providerToDelete, setProviderToDelete] = useState<string | null>(null);
+  const [editingProvider, setEditingProvider] = useState<Record<string, boolean>>({});
 
   const handleDefaultProviderChange = async (value: string) => {
     setDefaultProvider(value);
@@ -151,11 +152,12 @@ export function ProvidersSection({ settings, apiKeys, onUpdateKeys, onUpdateSett
         {PROVIDERS.map((provider) => {
           const existingKey = apiKeys?.find((k: any) => k.provider === provider.id);
           const isEnabled = existingKey?.isEnabled ?? false;
+          const isEditing = editingProvider[provider.id] || !existingKey;
 
           return (
             <div key={provider.id} className={cn(
-              "border border-border/60 rounded-2xl p-5 space-y-5 transition-all duration-300",
-              existingKey ? "bg-card shadow-sm" : "bg-card/40 border-dashed"
+              "border border-border/60 rounded-2xl p-5 space-y-4 transition-all duration-300",
+              existingKey ? (isEnabled ? "bg-card shadow-sm" : "bg-card/40 border-border/40") : "bg-card/20 border-dashed border-border/30"
             )}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -186,48 +188,97 @@ export function ProvidersSection({ settings, apiKeys, onUpdateKeys, onUpdateSett
                   </div>
                 </div>
                 
-                {existingKey && (
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => handleToggle(provider.id, isEnabled)} className="h-8 rounded-lg text-xs">
-                      {isEnabled ? "Disable" : "Enable"}
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={() => handleDelete(provider.id)} className="h-8 rounded-lg text-xs bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground shadow-none border-0">
-                      Remove
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              <div className="pl-16 space-y-2">
-                <div className="flex gap-2 relative">
-                  <Input 
-                    type="password"
-                    placeholder={existingKey ? "sk-••••••••••••••••••••••••" : `Enter your ${provider.name} API Key...`}
-                    value={keysInput[provider.id] || ""}
-                    onChange={(e) => setKeysInput(prev => ({ ...prev, [provider.id]: e.target.value }))}
-                    className="flex-1 font-mono text-[13px] h-9 rounded-lg bg-background"
-                  />
-                  {keysInput[provider.id] && (
-                    <Button 
-                      variant="secondary" 
-                      onClick={() => handleTestKey(provider.id)}
-                      disabled={testing[provider.id]}
-                      className="h-9 px-3 rounded-lg text-xs"
-                    >
-                      {testing[provider.id] ? <Loader size="sm" className="mr-1.5" /> : null}
-                      Test
-                    </Button>
+                <div className="flex items-center gap-2">
+                  {existingKey && (
+                    <>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleToggle(provider.id, isEnabled)} 
+                        className="h-8 rounded-lg text-xs"
+                      >
+                        {isEnabled ? "Disable" : "Enable"}
+                      </Button>
+                      {!isEditing && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => setEditingProvider(prev => ({ ...prev, [provider.id]: true }))} 
+                          className="h-8 rounded-lg text-xs"
+                        >
+                          Change Key
+                        </Button>
+                      )}
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        onClick={() => handleDelete(provider.id)} 
+                        className="h-8 rounded-lg text-xs bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground shadow-none border-0"
+                      >
+                        Remove
+                      </Button>
+                    </>
                   )}
-                  <Button 
-                    onClick={() => handleSaveKey(provider.id)}
-                    disabled={!keysInput[provider.id] || saving[provider.id]}
-                    className="h-9 px-4 rounded-lg text-xs font-medium"
-                  >
-                    {saving[provider.id] ? <Loader size="sm" className="mr-1.5" /> : null}
-                    {existingKey ? "Update" : "Save Key"}
-                  </Button>
                 </div>
               </div>
+
+              {isEditing ? (
+                <div className="pl-16 space-y-3">
+                  <p className="text-[12px] text-muted-foreground">
+                    Please paste your {provider.name} API key below. Keys are encrypted and saved securely.
+                  </p>
+                  <div className="flex gap-2 relative">
+                    <Input 
+                      type="password"
+                      placeholder={existingKey ? "sk-••••••••••••••••••••••••" : `Enter your ${provider.name} API Key...`}
+                      value={keysInput[provider.id] || ""}
+                      onChange={(e) => setKeysInput(prev => ({ ...prev, [provider.id]: e.target.value }))}
+                      className="flex-1 font-mono text-[13px] h-9 rounded-lg bg-background"
+                    />
+                    {keysInput[provider.id] && (
+                      <Button 
+                        variant="secondary" 
+                        onClick={() => handleTestKey(provider.id)}
+                        disabled={testing[provider.id]}
+                        className="h-9 px-3 rounded-lg text-xs"
+                      >
+                        {testing[provider.id] ? <Loader size="sm" className="mr-1.5" /> : null}
+                        Test
+                      </Button>
+                    )}
+                    <Button 
+                      onClick={async () => {
+                        await handleSaveKey(provider.id);
+                        setEditingProvider(prev => ({ ...prev, [provider.id]: false }));
+                      }}
+                      disabled={!keysInput[provider.id] || saving[provider.id]}
+                      className="h-9 px-4 rounded-lg text-xs font-medium"
+                    >
+                      {saving[provider.id] ? <Loader size="sm" className="mr-1.5" /> : null}
+                      {existingKey ? "Update" : "Save Key"}
+                    </Button>
+                    {existingKey && (
+                      <Button 
+                        variant="ghost" 
+                        onClick={() => {
+                          setKeysInput(prev => ({ ...prev, [provider.id]: "" }));
+                          setEditingProvider(prev => ({ ...prev, [provider.id]: false }));
+                        }}
+                        className="h-9 px-3 rounded-lg text-xs"
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="pl-16 flex items-center justify-between text-[13px] text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                    API key configured & securely saved
+                  </span>
+                </div>
+              )}
             </div>
           );
         })}

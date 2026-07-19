@@ -34,7 +34,7 @@ export const MessageRenderer = memo(function MessageRenderer({ content }: { cont
       </blockquote>
     ),
     a: ({ href, children }) => (
-      <a href={href || "#"} className="text-primary hover:underline underline-offset-4" target="_blank" rel="noreferrer">
+      <a href={href || "#"} className="text-primary underline underline-offset-4 hover:opacity-80 transition-opacity" target="_blank" rel="noreferrer">
         {children}
       </a>
     ),
