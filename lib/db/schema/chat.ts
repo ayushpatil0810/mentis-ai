@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { user } from "./auth";
 
 export const chat = pgTable(
@@ -15,6 +16,9 @@ export const chat = pgTable(
     isArchived: boolean("is_archived").default(false).notNull(),
     isShared: boolean("is_shared").default(false).notNull(),
     sharePath: text("share_path").unique(), // For public sharing links
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    parentChatId: text("parent_chat_id").references((): any => chat.id, { onDelete: "set null" }),
+    branchPointMessageId: text("branch_point_message_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -27,5 +31,7 @@ export const chat = pgTable(
     index("chat_userId_lastMessageAt_idx").on(table.userId, table.lastMessageAt.desc()),
     // Index for filtering pinned or archived chats efficiently
     index("chat_userId_isPinned_lastMessageAt_idx").on(table.userId, table.isPinned, table.lastMessageAt.desc()),
+    // GIN index for Full-Text Search on chat title
+    index("chat_title_fts_idx").using("gin", sql`to_tsvector('english', ${table.title})`),
   ]
 );

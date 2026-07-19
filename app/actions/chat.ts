@@ -46,3 +46,25 @@ export async function getMessagesAction(chatId: string) {
     return await messageService.getMessagesByChatId(user.id, chatId);
   });
 }
+
+export async function branchChatAction(chatId: string, messageId: string) {
+  return safeAction("branchChat", async () => {
+    const { user } = await requireAuth();
+    return await chatService.branchChat(user.id, chatId, messageId);
+  });
+}
+
+export async function getBranchesAction(chatId: string) {
+  return safeAction("getBranches", async () => {
+    const { user } = await requireAuth();
+    return await chatService.getBranches(user.id, chatId);
+  });
+}
+
+export async function setActiveVersionAction(messageId: string) {
+  return safeAction("setActiveVersion", async () => {
+    const { user } = await requireAuth();
+    return await messageService.setActiveVersion(user.id, messageId);
+  });
+}
+

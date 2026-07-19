@@ -8,6 +8,9 @@ import { Button } from "../ui/button";
 import { ArrowUp01Icon, StopIcon } from "hugeicons-react";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { SlashCommandMenu, SLASH_COMMANDS } from "./slash-command-menu";
 
 interface ChatInputProps {
   value: string;
@@ -20,11 +23,75 @@ interface ChatInputProps {
   modelSelector?: React.ReactNode;
 }
 
-export function ChatInput({ value, onChange, onSubmit, isLoading, onStop, placeholder, className, modelSelector }: ChatInputProps) {
+export function ChatInput({ 
+  value, 
+  onChange, 
+  onSubmit, 
+  isLoading, 
+  onStop, 
+  placeholder, 
+  className, 
+  modelSelector 
+}: ChatInputProps) {
+  const router = useRouter();
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [showMenu, setShowMenu] = useState(true);
+
   const isExpanded = value.includes("\n") || value.length > 60;
+
+  // Detect slash trigger
+  const isSlashActive = showMenu && value.startsWith("/") && !value.includes(" ");
+  const currentQuery = isSlashActive ? value.slice(1).toLowerCase() : "";
+
+  const filteredCommands = SLASH_COMMANDS.filter((cmd) =>
+    cmd.name.startsWith(currentQuery)
+  );
+
+  // Reset active index when query changes
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [currentQuery]);
+
+  // Reset manually closed state if input changes back to empty
+  useEffect(() => {
+    if (value === "") {
+      setShowMenu(true);
+    }
+  }, [value]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (isSlashActive && filteredCommands.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveIndex((prev) => (prev + 1) % filteredCommands.length);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length);
+      } else if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        const cmd = filteredCommands[activeIndex];
+        if (cmd) {
+          cmd.action(onChange, router);
+          setShowMenu(false);
+        }
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setShowMenu(false);
+      }
+    }
+  };
 
   return (
     <div className={cn("relative w-full", className)}>
+      <SlashCommandMenu
+        isOpen={isSlashActive}
+        onClose={() => setShowMenu(false)}
+        value={value}
+        onChange={onChange}
+        activeIndex={activeIndex}
+        setActiveIndex={setActiveIndex}
+        filteredCommands={filteredCommands}
+      />
       <PromptInput
         value={value}
         onValueChange={onChange}
@@ -35,6 +102,7 @@ export function ChatInput({ value, onChange, onSubmit, isLoading, onStop, placeh
         <PromptInputTextarea 
           placeholder={placeholder || "Ask Anything"} 
           className={cn("px-3.5 py-2 text-[15px]", !isExpanded && "pr-12")} 
+          onKeyDown={handleKeyDown}
         />
         <PromptInputActions className={cn("justify-end items-center gap-1.5", isExpanded ? "pt-2 pb-1 pr-2" : "absolute right-1.5 top-1/2 -translate-y-1/2")}>
           {modelSelector && (

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -49,6 +49,12 @@ export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesk
   const pathname = usePathname();
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const handleOpenSettings = () => setIsSettingsOpen(true);
+    window.addEventListener("open-settings", handleOpenSettings);
+    return () => window.removeEventListener("open-settings", handleOpenSettings);
+  }, []);
 
   const { data: response, isLoading } = useQuery({
     queryKey: ["chats"],
@@ -105,19 +111,18 @@ export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesk
                 <Link 
                   href={`/chat/${chat.id}`}
                   className={cn(
-                    "flex-1 flex items-center gap-2.5 h-8 px-2.5 rounded-lg text-[13px] transition-all duration-200 select-none",
+                    "flex-1 flex items-center gap-2.5 h-8 pl-2.5 pr-8 rounded-lg text-[13px] transition-all duration-200 select-none min-w-0",
                     isActive 
                       ? "bg-accent text-accent-foreground font-medium shadow-[0_1px_2px_rgba(0,0,0,0.02)]" 
                       : "text-muted-foreground hover:text-foreground hover:bg-muted/40 font-normal"
                   )}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <Message01Icon className="w-3.5 h-3.5 shrink-0 opacity-60" />
                   <span className="truncate flex-1">{chat.title}</span>
                 </Link>
                 
                 <div className={cn(
-                  "absolute right-2 flex items-center",
+                  "absolute right-2 flex items-center z-10",
                   isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"
                 )}>
                   <DropdownMenu>
@@ -208,7 +213,10 @@ export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesk
               <span>New Chat</span>
             </button>
             
-            <button className="flex items-center justify-between h-9 px-3 w-full rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all text-[13px] mt-1 border border-transparent hover:border-border/50 shadow-none">
+            <button 
+              className="flex items-center justify-between h-9 px-3 w-full rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-all text-[13px] mt-1 border border-transparent hover:border-border/50 shadow-none cursor-pointer"
+              onClick={() => window.dispatchEvent(new CustomEvent("open-command-palette", { detail: { search: true } }))}
+            >
               <div className="flex items-center gap-2.5">
                 <Search01Icon className="w-4 h-4 opacity-70" />
                 <span>Search</span>

@@ -18,11 +18,15 @@ export function mapDbMessagesToUiMessages(dbMessages: any[]): any[] {
       role: msg.role,
       content: msg.content,
       createdAt: msg.createdAt,
+      versionGroupId: msg.versionGroupId,
+      isActiveVersion: msg.isActiveVersion,
+      metadata: msg.metadata,
     };
     
     // If it is an assistant message and contains parts
     if (msg.role === "assistant" && msg.parts && Array.isArray(msg.parts)) {
       const toolCalls = msg.parts.filter((p: any) => p.type === "tool-call");
+      const msgRunId = msg.metadata?.runId;
       
       if (toolCalls.length > 0) {
         uiMsg.toolInvocations = toolCalls.map((call: any) => {
@@ -32,6 +36,12 @@ export function mapDbMessagesToUiMessages(dbMessages: any[]): any[] {
           // Look ahead in subsequent db messages to find the matching tool result
           for (let j = i + 1; j < dbMessages.length; j++) {
             const nextMsg = dbMessages[j];
+            
+            // If they both have runIds, verify they match to avoid linking tool output from another retry
+            if (msgRunId && nextMsg.metadata?.runId && msgRunId !== nextMsg.metadata?.runId) {
+              continue;
+            }
+            
             if (nextMsg.role === "tool" && nextMsg.parts && Array.isArray(nextMsg.parts)) {
               const matchingResult = nextMsg.parts.find(
                 (p: any) => p.toolCallId === call.toolCallId
