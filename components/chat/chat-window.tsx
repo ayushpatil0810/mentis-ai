@@ -58,6 +58,7 @@ export function ChatWindow({ chatId }: { chatId: string }) {
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
   const [renameTitle, setRenameTitle] = useState("");
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   // Queries
   const { data: response, isLoading: isFetching } = useQuery({
@@ -294,34 +295,32 @@ export function ChatWindow({ chatId }: { chatId: string }) {
   }, [messages, currentChat]);
 
   // Handlers
-  const handleConfirmRename = () => {
+  function handleConfirmRename() {
     if (renameTitle.trim()) {
       renameMutation.mutate(renameTitle.trim());
     }
-  };
+  }
 
-  const handleTogglePin = () => {
+  function handleTogglePin() {
     if (currentChat) {
       pinMutation.mutate(!currentChat.isPinned);
     }
-  };
+  }
 
-  const handleToggleArchive = () => {
+  function handleToggleArchive() {
     if (currentChat) {
       archiveMutation.mutate(!currentChat.isArchived);
     }
-  };
+  }
 
-  const handleDeleteChat = () => {
-    if (confirm("Are you sure you want to delete this conversation? This cannot be undone.")) {
-      deleteMutation.mutate();
-    }
-  };
+  function handleDeleteChat() {
+    setIsDeleteDialogOpen(true);
+  }
 
-  const handleTriggerBranch = (messageId: string) => {
+  function handleTriggerBranch(messageId: string) {
     setBranchMessageId(messageId);
     setIsBranchDialogOpen(true);
-  };
+  }
 
   const handleConfirmBranch = () => {
     if (branchMessageId) {
@@ -444,7 +443,7 @@ export function ChatWindow({ chatId }: { chatId: string }) {
                   🌿 Branches
                 </div>
                 <DropdownMenuSeparator className="bg-border/30" />
-                {branches.map((branch: any) => (
+                {branches.map((branch: { id: string; title: string; createdAt: string | Date }) => (
                   <DropdownMenuItem 
                     key={branch.id} 
                     asChild
@@ -708,6 +707,33 @@ export function ChatWindow({ chatId }: { chatId: string }) {
         chat={currentChat} 
         messages={messages} 
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Delete Chat</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this conversation? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                deleteMutation.mutate();
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
