@@ -11,11 +11,7 @@ export type ToolErrorCode =
   | "EXECUTION_ERROR"
   | "UNKNOWN_ERROR";
 
-export interface ToolExecutionOptions {
-  context: ToolContext;
-}
 
-export type ToolResultStatus = "success" | "error";
 
 export interface ToolSuccess<T = any> {
   status: "success";

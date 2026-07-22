@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { ToolConfig } from "@/types/tool";
+import { Tool } from "@/types/tool";
 import { betterFetch } from "@better-fetch/fetch";
 
-export const webSearchTool: ToolConfig<any> = {
+export const webSearchTool: Tool = {
   name: "webSearch",
   description:
     "Search the web for real-time, current, or changing information (e.g. latest news, software versions, release notes, documentation, pricing). Do not use for static common knowledge or if freshness is not important. Returns titles, URLs, and snippets.",

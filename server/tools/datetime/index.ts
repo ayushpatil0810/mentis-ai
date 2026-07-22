@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { ToolConfig } from "@/types/tool";
+import { Tool } from "@/types/tool";
 
-export const datetimeTool: ToolConfig<any> = {
+export const datetimeTool: Tool = {
   name: "datetime",
   description: "Get the current date/time, local timezones, or compute relative offset dates (e.g. today, yesterday, tomorrow, next week). Use whenever date/time context is needed. Returns ISO and formatted string.",
   parameters: z.object({

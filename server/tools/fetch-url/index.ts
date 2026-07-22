@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { ToolConfig } from "@/types/tool";
+import { Tool } from "@/types/tool";
 import { betterFetch } from "@better-fetch/fetch";
 
-export const fetchUrlTool: ToolConfig<any> = {
+export const fetchUrlTool: Tool = {
   name: "fetchUrl",
   description: "Fetch a public webpage's main text. Use when the user provides a URL and asks to summarize, analyze, or explain its contents. Do not guess web contents or fetch private/local IPs. Returns page title and cleaned markdown-like text.",
   parameters: z.object({

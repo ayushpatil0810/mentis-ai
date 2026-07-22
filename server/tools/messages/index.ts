@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ToolConfig } from "@/types/tool";
+import { Tool } from "@/types/tool";
 import { db } from "@/lib/db";
 import { message, chat } from "@/lib/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -34,7 +34,7 @@ function getBaseQuery() {
   .innerJoin(chat, eq(message.chatId, chat.id));
 }
 
-export const searchMessagesTool: ToolConfig<any> = {
+export const searchMessagesTool: Tool = {
   name: "searchMessages",
   description: "Search inside the text of past chat messages across all user history. Use when user asks 'What did I say about X?' or to look up specific statements or past discussions. Returns message preview and conversation details.",
   parameters: z.object({

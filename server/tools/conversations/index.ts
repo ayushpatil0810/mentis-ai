@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { ToolConfig } from "@/types/tool";
+import { Tool } from "@/types/tool";
 import { db } from "@/lib/db";
 import { chat } from "@/lib/db/schema";
 import { eq, and, like, desc } from "drizzle-orm";
 
-export const searchConversationsTool: ToolConfig<any> = {
+export const searchConversationsTool: Tool = {
   name: "searchConversations",
   description: "Search the conversation titles and chat lists of the active user. Use when user references previous chats or general conversation history. Returns list of conversation metadata (id, title, timestamps).",
   parameters: z.object({

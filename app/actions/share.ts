@@ -45,10 +45,3 @@ export async function forkShareAction(shareId: string) {
     return await shareService.forkShare(user.id, shareId);
   });
 }
-
-export async function getShareByIdAction(shareId: string) {
-  return safeAction("getShareById", async () => {
-    return await shareService.getShareById(shareId);
-  });
-}
-

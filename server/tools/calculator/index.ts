@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { ToolConfig } from "@/types/tool";
+import { Tool } from "@/types/tool";
 
-export const calculatorTool: ToolConfig<any> = {
+export const calculatorTool: Tool = {
   name: "calculator",
   description: "Always use this tool for evaluating mathematical calculations, arithmetic, formulas, or equations. Do not calculate mentally or estimate values. Returns the computed numeric result.",
   parameters: z.object({
