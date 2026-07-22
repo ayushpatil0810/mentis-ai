@@ -6,6 +6,27 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
+const formatDate = (isoStr: string) => {
+  return new Date(isoStr).toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+function EmptyState({ message }: { message: string }) {
+  return <div className="text-xs text-muted-foreground py-1 italic">{message}</div>;
+}
+
+function ChevronRight({ className = "h-4.5 w-4.5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+    </svg>
+  );
+}
+
 // --- 1. CALCULATOR CARD ---
 interface CalculatorResult {
   result: number;
@@ -106,7 +127,7 @@ export function WebSearchCard({ args, result }: { args: { query: string }; resul
           ))}
         </div>
       ) : result ? (
-        <div className="text-xs text-muted-foreground py-2 italic">No search results found.</div>
+        <EmptyState message="No search results found." />
       ) : null}
     </div>
   );
@@ -222,15 +243,6 @@ interface ConversationResult {
 }
 
 export function ConversationsCard({ result }: { result?: ConversationResult }) {
-  const formatDate = (isoStr: string) => {
-    return new Date(isoStr).toLocaleDateString("en-US", {
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   return (
     <div className="flex flex-col gap-3.5 w-full bg-background/40 p-4 border border-border/40 rounded-xl">
       <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Matching Conversations</div>
@@ -268,15 +280,13 @@ export function ConversationsCard({ result }: { result?: ConversationResult }) {
               </div>
 
               <div className="text-muted-foreground/40 group-hover:text-foreground shrink-0 transition-colors">
-                <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
+                <ChevronRight />
               </div>
             </Link>
           ))}
         </div>
       ) : result ? (
-        <div className="text-xs text-muted-foreground py-1 italic">No matching conversations found.</div>
+        <EmptyState message="No matching conversations found." />
       ) : null}
     </div>
   );
@@ -318,15 +328,6 @@ function HighlightText({ text, query }: { text: string; query: string }) {
 }
 
 export function MessagesCard({ result }: { result?: MessageResult }) {
-  const formatDate = (isoStr: string) => {
-    return new Date(isoStr).toLocaleDateString("en-US", {
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   return (
     <div className="flex flex-col gap-3.5 w-full bg-background/40 p-4 border border-border/40 rounded-xl">
       <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Matching Messages</div>
@@ -354,15 +355,13 @@ export function MessagesCard({ result }: { result?: MessageResult }) {
 
               <div className="flex items-center gap-1 text-[10px] font-semibold text-primary/80 group-hover:text-primary transition-colors self-end">
                 Jump to message
-                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
+                <ChevronRight className="h-3 w-3" />
               </div>
             </Link>
           ))}
         </div>
       ) : result ? (
-        <div className="text-xs text-muted-foreground py-1 italic">No matching messages found.</div>
+        <EmptyState message="No matching messages found." />
       ) : null}
     </div>
   );

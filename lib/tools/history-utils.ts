@@ -2,6 +2,21 @@
  * Maps database messages to Vercel AI SDK compatible UI messages,
  * reconstructing toolInvocations from tool-call and tool-result message parts.
  */
+
+function truncateMessageContent(compressed: any, maxLength: number, label: string) {
+  if (typeof compressed.content === "string" && compressed.content.length > maxLength) {
+    compressed.content = compressed.content.substring(0, maxLength) + `... [${label}]`;
+  }
+  if (compressed.parts && Array.isArray(compressed.parts)) {
+    compressed.parts = compressed.parts.map((p: any) => {
+      if (p.type === "text" && p.text && p.text.length > maxLength) {
+        return { ...p, text: p.text.substring(0, maxLength) + `... [${label}]` };
+      }
+      return p;
+    });
+  }
+}
+
 export function mapDbMessagesToUiMessages(dbMessages: any[]): any[] {
   const uiMessages: any[] = [];
   
@@ -136,30 +151,10 @@ export function compressMessageHistory(messages: any[], keepVerbatim: number = 1
       }
     } else if (msg.role === "assistant") {
       // Truncate long assistant text response
-      if (typeof compressed.content === "string" && compressed.content.length > 200) {
-        compressed.content = compressed.content.substring(0, 200) + "... [Response compressed]";
-      }
-      if (compressed.parts && Array.isArray(compressed.parts)) {
-        compressed.parts = compressed.parts.map((p: any) => {
-          if (p.type === "text" && p.text && p.text.length > 200) {
-            return { ...p, text: p.text.substring(0, 200) + "... [Response compressed]" };
-          }
-          return p;
-        });
-      }
+      truncateMessageContent(compressed, 200, "Response compressed");
     } else if (msg.role === "user") {
       // Truncate long user text inputs
-      if (typeof compressed.content === "string" && compressed.content.length > 300) {
-        compressed.content = compressed.content.substring(0, 300) + "... [User prompt compressed]";
-      }
-      if (compressed.parts && Array.isArray(compressed.parts)) {
-        compressed.parts = compressed.parts.map((p: any) => {
-          if (p.type === "text" && p.text && p.text.length > 300) {
-            return { ...p, text: p.text.substring(0, 300) + "... [User prompt compressed]" };
-          }
-          return p;
-        });
-      }
+      truncateMessageContent(compressed, 300, "User prompt compressed");
     }
 
     return compressed;

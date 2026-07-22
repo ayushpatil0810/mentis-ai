@@ -73,6 +73,20 @@ export async function exportConversation(
     filteredMessages = filteredMessages.filter((m) => m.role !== "tool" && m.role !== "data");
   }
 
+  const renderToolsMd = (tools: ToolInvocationData[], headingLevel: string) => {
+    if (!tools || tools.length === 0) return "";
+    let toolMd = `${headingLevel} Tools Used\n`;
+    tools.forEach((t) => {
+      toolMd += `- **Tool:** \`${t.toolName}\` (State: \`${t.state}\`)\n`;
+      toolMd += `  - **Args:** \`${JSON.stringify(t.args)}\`\n`;
+      if (t.result) {
+        toolMd += `  - **Result:** \`${JSON.stringify(t.result)}\`\n`;
+      }
+    });
+    toolMd += `\n`;
+    return toolMd;
+  };
+
   const filenameBase = chat.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
   if (options.format === "json") {
@@ -144,15 +158,7 @@ export async function exportConversation(
           if (options.includeTools) {
             const tools = getToolInvocations(msg);
             if (tools && tools.length > 0) {
-              md += `#### Tools Used\n`;
-              tools.forEach((t) => {
-                md += `- **Tool:** \`${t.toolName}\` (State: \`${t.state}\`)\n`;
-                md += `  - **Args:** \`${JSON.stringify(t.args)}\`\n`;
-                if (t.result) {
-                  md += `  - **Result:** \`${JSON.stringify(t.result)}\`\n`;
-                }
-              });
-              md += `\n`;
+              md += renderToolsMd(tools, "####");
             }
           }
         });
@@ -165,15 +171,7 @@ export async function exportConversation(
         if (options.includeTools) {
           const tools = getToolInvocations(m);
           if (tools && tools.length > 0) {
-            md += `### Tools Used\n`;
-            tools.forEach((t) => {
-              md += `- **Tool:** \`${t.toolName}\` (State: \`${t.state}\`)\n`;
-              md += `  - **Args:** \`${JSON.stringify(t.args)}\`\n`;
-              if (t.result) {
-                md += `  - **Result:** \`${JSON.stringify(t.result)}\`\n`;
-              }
-            });
-            md += `\n`;
+            md += renderToolsMd(tools, "###");
           }
         }
       }

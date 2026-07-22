@@ -71,8 +71,7 @@ export async function searchAll(userId: string, searchTerm: string): Promise<Sea
   // Format search query using websearch_to_tsquery
   const querySql = sql`websearch_to_tsquery('english', ${trimmed})`;
 
-  // 1. Conversations: owned by user, non-branched, non-shared, matching title
-  const conversations = await db.select({
+  const chatSelectFields = {
     id: chat.id,
     title: chat.title,
     isPinned: chat.isPinned,
@@ -83,7 +82,10 @@ export async function searchAll(userId: string, searchTerm: string): Promise<Sea
     updatedAt: chat.updatedAt,
     lastMessageAt: chat.lastMessageAt,
     highlightedTitle: sql<string>`ts_headline('english', ${chat.title}, ${querySql}, 'StartSel=<mark class="bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 font-medium px-0.5 rounded">, StopSel=</mark>')`
-  })
+  };
+
+  // 1. Conversations: owned by user, non-branched, non-shared, matching title
+  const conversations = await db.select(chatSelectFields)
   .from(chat)
   .where(
     and(
@@ -97,18 +99,7 @@ export async function searchAll(userId: string, searchTerm: string): Promise<Sea
   .limit(20);
 
   // 2. Shared: owned by user, isShared = true, matching title
-  const shared = await db.select({
-    id: chat.id,
-    title: chat.title,
-    isPinned: chat.isPinned,
-    isArchived: chat.isArchived,
-    isShared: chat.isShared,
-    parentChatId: chat.parentChatId,
-    createdAt: chat.createdAt,
-    updatedAt: chat.updatedAt,
-    lastMessageAt: chat.lastMessageAt,
-    highlightedTitle: sql<string>`ts_headline('english', ${chat.title}, ${querySql}, 'StartSel=<mark class="bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 font-medium px-0.5 rounded">, StopSel=</mark>')`
-  })
+  const shared = await db.select(chatSelectFields)
   .from(chat)
   .where(
     and(
@@ -121,18 +112,7 @@ export async function searchAll(userId: string, searchTerm: string): Promise<Sea
   .limit(20);
 
   // 3. Branches: owned by user, branched (parentChatId IS NOT NULL), matching title
-  const branches = await db.select({
-    id: chat.id,
-    title: chat.title,
-    isPinned: chat.isPinned,
-    isArchived: chat.isArchived,
-    isShared: chat.isShared,
-    parentChatId: chat.parentChatId,
-    createdAt: chat.createdAt,
-    updatedAt: chat.updatedAt,
-    lastMessageAt: chat.lastMessageAt,
-    highlightedTitle: sql<string>`ts_headline('english', ${chat.title}, ${querySql}, 'StartSel=<mark class="bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 font-medium px-0.5 rounded">, StopSel=</mark>')`
-  })
+  const branches = await db.select(chatSelectFields)
   .from(chat)
   .where(
     and(

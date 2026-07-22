@@ -138,36 +138,8 @@
   --color-border-default: #222225;
   --color-focus-ring: oklab(0.871102 0.00156847 -0.00521505 / 0.5);
 
-  --background: var(--color-surface-base);
-  --foreground: var(--color-text-primary);
   --card: var(--color-surface-muted);
-  --card-foreground: var(--color-text-primary);
   --popover: var(--color-surface-muted);
-  --popover-foreground: var(--color-text-primary);
-  --primary: var(--color-text-primary);
-  --primary-foreground: var(--color-surface-base);
-  --secondary: var(--color-surface-muted);
-  --secondary-foreground: var(--color-text-primary);
-  --muted: var(--color-surface-muted);
-  --muted-foreground: var(--color-text-secondary);
-  --accent: var(--color-surface-muted);
-  --accent-foreground: var(--color-text-primary);
-  --border: var(--color-border-default);
-  --input: var(--color-border-default);
-  --ring: var(--color-focus-ring);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.55 0 0);
-  --chart-3: oklch(0.44 0 0);
-  --chart-4: oklch(0.37 0 0);
-  --chart-5: oklch(0.27 0 0);
-  --sidebar: var(--color-surface-muted);
-  --sidebar-foreground: var(--color-text-primary);
-  --sidebar-primary: var(--color-text-primary);
-  --sidebar-primary-foreground: var(--color-surface-base);
-  --sidebar-accent: var(--color-surface-muted);
-  --sidebar-accent-foreground: var(--color-text-primary);
-  --sidebar-border: var(--color-border-default);
-  --sidebar-ring: var(--color-focus-ring);
 }
 
 @layer base {

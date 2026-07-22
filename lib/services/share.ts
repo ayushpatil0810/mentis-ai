@@ -6,9 +6,23 @@ import { getMessagesByChatId } from "./message";
 import { ulid } from "ulid";
 import { AuthError, NotFoundError } from "../utils/errors";
 
-export async function createShare(userId: string, chatId: string) {
-  if (!userId) throw new AuthError();
+async function getOwnedShare(userId: string, shareId: string) {
+  const [existingShare] = await db.select()
+    .from(share)
+    .where(eq(share.id, shareId));
 
+  if (!existingShare) {
+    throw new NotFoundError("Share not found");
+  }
+
+  if (existingShare.userId !== userId) {
+    throw new AuthError("You do not own this share");
+  }
+
+  return existingShare;
+}
+
+async function buildSnapshot(userId: string, chatId: string) {
   const chatObj = await getChatById(userId, chatId);
   const messagesList = await getMessagesByChatId(userId, chatId);
 
@@ -17,7 +31,7 @@ export async function createShare(userId: string, chatId: string) {
     (m) => m.isActiveVersion || m.versionGroupId === null
   );
 
-  const snapshot = {
+  return {
     chat: {
       title: chatObj.title,
       model: chatObj.model,
@@ -30,7 +44,12 @@ export async function createShare(userId: string, chatId: string) {
       createdAt: m.createdAt,
     })),
   };
+}
 
+export async function createShare(userId: string, chatId: string) {
+  if (!userId) throw new AuthError();
+
+  const snapshot = await buildSnapshot(userId, chatId);
   const shareId = ulid();
 
   const [newShare] = await db.insert(share).values({
@@ -79,38 +98,8 @@ export async function getShareByChatId(userId: string, chatId: string) {
 export async function updateShare(userId: string, shareId: string) {
   if (!userId) throw new AuthError();
 
-  const [existingShare] = await db.select()
-    .from(share)
-    .where(eq(share.id, shareId));
-
-  if (!existingShare) {
-    throw new NotFoundError("Share not found");
-  }
-
-  if (existingShare.userId !== userId) {
-    throw new AuthError("You do not own this share");
-  }
-
-  const chatObj = await getChatById(userId, existingShare.chatId);
-  const messagesList = await getMessagesByChatId(userId, existingShare.chatId);
-
-  const activeMessages = messagesList.filter(
-    (m) => m.isActiveVersion || m.versionGroupId === null
-  );
-
-  const snapshot = {
-    chat: {
-      title: chatObj.title,
-      model: chatObj.model,
-      systemPrompt: chatObj.systemPrompt,
-    },
-    messages: activeMessages.map((m) => ({
-      role: m.role,
-      content: m.content,
-      parts: m.parts,
-      createdAt: m.createdAt,
-    })),
-  };
+  const existingShare = await getOwnedShare(userId, shareId);
+  const snapshot = await buildSnapshot(userId, existingShare.chatId);
 
   const [updated] = await db.update(share)
     .set({ snapshot, updatedAt: new Date() })
@@ -123,17 +112,7 @@ export async function updateShare(userId: string, shareId: string) {
 export async function setShareVisibility(userId: string, shareId: string, isPublic: boolean) {
   if (!userId) throw new AuthError();
 
-  const [existingShare] = await db.select()
-    .from(share)
-    .where(eq(share.id, shareId));
-
-  if (!existingShare) {
-    throw new NotFoundError("Share not found");
-  }
-
-  if (existingShare.userId !== userId) {
-    throw new AuthError("You do not own this share");
-  }
+  await getOwnedShare(userId, shareId);
 
   const [updated] = await db.update(share)
     .set({ isPublic, updatedAt: new Date() })
@@ -146,17 +125,7 @@ export async function setShareVisibility(userId: string, shareId: string, isPubl
 export async function deleteShare(userId: string, shareId: string) {
   if (!userId) throw new AuthError();
 
-  const [existingShare] = await db.select()
-    .from(share)
-    .where(eq(share.id, shareId));
-
-  if (!existingShare) {
-    throw new NotFoundError("Share not found");
-  }
-
-  if (existingShare.userId !== userId) {
-    throw new AuthError("You do not own this share");
-  }
+  await getOwnedShare(userId, shareId);
 
   await db.delete(share)
     .where(eq(share.id, shareId));
