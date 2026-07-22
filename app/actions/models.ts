@@ -2,6 +2,7 @@
 
 import { requireAuth } from "@/lib/auth/auth-utils";
 import { getDecryptedApiKey } from "@/lib/services/api-key";
+import { betterFetch } from "@better-fetch/fetch";
 
 export interface AIModel {
   id: string;
@@ -32,15 +33,19 @@ export async function getAvailableModelsAction(): Promise<AIModel[]> {
     ];
   }
 
-  // 1. Fetch OpenAI Models
+  // 1. Fetch OpenAI Models using betterFetch
   if (openAiKey) {
     try {
-      const response = await fetch("https://api.openai.com/v1/models", {
-        headers: { Authorization: `Bearer ${openAiKey}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        // Filter out non-chat models roughly (OpenAI lists a lot of whisper, tts, embedding models)
+      const { data, error } = await betterFetch<{ data: Array<{ id: string; created: number }> }>(
+        "",
+        {
+          baseURL: "https://api.openai.com/v1/models",
+          headers: { Authorization: `Bearer ${openAiKey}` },
+          timeout: 8000,
+        }
+      );
+
+      if (!error && data?.data) {
         const chatModels = data.data.filter(
           (m: any) =>
             m.id.startsWith("gpt-") ||
@@ -90,15 +95,19 @@ export async function getAvailableModelsAction(): Promise<AIModel[]> {
     }
   }
 
-  // 3. Fetch Gemini Models
+  // 3. Fetch Gemini Models using betterFetch
   if (geminiKey) {
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`,
+      const { data, error } = await betterFetch<{ models: Array<{ name: string; displayName?: string; supportedGenerationMethods?: string[] }> }>(
+        "",
+        {
+          baseURL: "https://generativelanguage.googleapis.com/v1beta/models",
+          query: { key: geminiKey },
+          timeout: 8000,
+        }
       );
-      if (response.ok) {
-        const data = await response.json();
-        // Filter out generateContent supported models
+
+      if (!error && data?.models) {
         const chatModels = data.models.filter(
           (m: any) =>
             m.supportedGenerationMethods?.includes("generateContent") &&
