@@ -8,7 +8,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url("DATABASE_URL must be a valid URL"),
   GITHUB_CLIENT_ID: z.string().min(1, "GITHUB_CLIENT_ID is missing"),
   GITHUB_CLIENT_SECRET: z.string().min(1, "GITHUB_CLIENT_SECRET is missing"),
-  OPENAI_API_KEY: z.string().min(1, "OPENAI_API_KEY is missing"),
+  OPENAI_API_KEY: z.string().optional(),
   ENCRYPTION_KEY: z.string().min(32, "ENCRYPTION_KEY must be at least 32 characters long"),
   ANTHROPIC_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),

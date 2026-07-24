@@ -21,7 +21,7 @@ export async function upsertApiKey(userId: string, data: z.infer<typeof upsertAp
   
   if (existing) {
     const [updated] = await db.update(apiKey)
-      .set({ encryptedKey })
+      .set({ encryptedKey, isEnabled: true })
       .where(and(eq(apiKey.userId, userId), eq(apiKey.provider, parsed.provider)))
       .returning({ id: apiKey.id, provider: apiKey.provider, updatedAt: apiKey.updatedAt });
     return updated;
@@ -33,6 +33,7 @@ export async function upsertApiKey(userId: string, data: z.infer<typeof upsertAp
         userId,
         provider: parsed.provider,
         encryptedKey,
+        isEnabled: true,
       })
       .returning({ id: apiKey.id, provider: apiKey.provider, updatedAt: apiKey.updatedAt });
     return created;

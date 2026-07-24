@@ -1,31 +1,28 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { env } from "../env";
 import { getDecryptedApiKey } from "../services/api-key";
 import { AuthError } from "../utils/errors";
 
 export async function getProvider(userId: string, providerName: string) {
   if (!userId) throw new AuthError();
   
-  // Try to get user's API key first
   const userKey = await getDecryptedApiKey(userId, providerName);
   
+  if (!userKey) {
+    const formattedProvider = providerName.charAt(0).toUpperCase() + providerName.slice(1);
+    throw new Error(`API key for ${formattedProvider} is not configured. Please add your API key in Settings.`);
+  }
+
   switch (providerName.toLowerCase()) {
     case "openai":
-      const openAiKey = userKey || env.OPENAI_API_KEY;
-      if (!openAiKey) throw new Error("OpenAI API key not configured");
-      return createOpenAI({ apiKey: openAiKey });
+      return createOpenAI({ apiKey: userKey });
       
     case "anthropic":
-      const anthropicKey = userKey || env.ANTHROPIC_API_KEY;
-      if (!anthropicKey) throw new Error("Anthropic API key not configured");
-      return createAnthropic({ apiKey: anthropicKey });
+      return createAnthropic({ apiKey: userKey });
       
     case "gemini":
-      const geminiKey = userKey || env.GEMINI_API_KEY;
-      if (!geminiKey) throw new Error("Gemini API key not configured");
-      return createGoogleGenerativeAI({ apiKey: geminiKey });
+      return createGoogleGenerativeAI({ apiKey: userKey });
       
     default:
       throw new Error(`Unsupported provider: ${providerName}`);

@@ -10,6 +10,7 @@ import {
   getBranchesAction, 
   setActiveVersionAction 
 } from "@/app/actions/chat";
+import { getAvailableModelsAction } from "@/app/actions/models";
 import { 
   createShareAction, 
   getShareByChatIdAction, 
@@ -23,7 +24,7 @@ import { ExportDialog } from "./export-dialog";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useEffect, useState } from "react";
-import { Loading01Icon } from "hugeicons-react";
+import { Loading01Icon, Key01Icon } from "hugeicons-react";
 import { ChatContainerRoot } from "@/components/ui/chat-container";
 import { ModelSelector } from "./model-selector";
 import { mapDbMessagesToUiMessages } from "@/lib/tools/history-utils";
@@ -95,6 +96,13 @@ export function ChatWindow({ chatId }: { chatId: string }) {
   });
 
   const shareObj = shareResponse?.success ? shareResponse.data : null;
+
+  const { data: models, isLoading: isLoadingModels } = useQuery({
+    queryKey: ["available-models"],
+    queryFn: () => getAvailableModelsAction(),
+  });
+
+  const hasNoApiKey = !isLoadingModels && (!models || models.length === 0);
 
   const dbMessages = response?.success ? response.data : undefined;
 
@@ -464,10 +472,11 @@ export function ChatWindow({ chatId }: { chatId: string }) {
             variant="outline"
             size="sm"
             onClick={() => setIsExportDialogOpen(true)}
-            className="h-8 rounded-lg text-xs font-medium border-border/40 gap-1.5 px-3 select-none cursor-pointer"
+            className="h-8 rounded-lg text-xs font-medium border-border/40 gap-1.5 px-2 sm:px-3 select-none cursor-pointer"
+            title="Export"
           >
             <Download className="h-3.5 w-3.5" />
-            <span>Export</span>
+            <span className="hidden sm:inline">Export</span>
           </Button>
 
           {/* Share Dialog Trigger */}
@@ -475,10 +484,11 @@ export function ChatWindow({ chatId }: { chatId: string }) {
             variant="outline"
             size="sm"
             onClick={() => setIsShareDialogOpen(true)}
-            className="h-8 rounded-lg text-xs font-medium border-border/40 gap-1.5 px-3 select-none cursor-pointer"
+            className="h-8 rounded-lg text-xs font-medium border-border/40 gap-1.5 px-2 sm:px-3 select-none cursor-pointer"
+            title="Share"
           >
             <Share className="h-3.5 w-3.5" />
-            <span>Share</span>
+            <span className="hidden sm:inline">Share</span>
           </Button>
 
           {/* Overflow Actions Dropdown */}
@@ -558,16 +568,42 @@ export function ChatWindow({ chatId }: { chatId: string }) {
       
       <div className="absolute bottom-6 left-0 right-0 px-4 z-20 pointer-events-none">
         <div className="max-w-3xl mx-auto w-full flex flex-col gap-2 pointer-events-auto">
+          {hasNoApiKey && (
+            <div className="w-full mb-1 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 flex items-center justify-between gap-3 shadow-md backdrop-blur-xl animate-fade-in">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400">
+                  <Key01Icon className="w-3.5 h-3.5" />
+                </div>
+                <p className="text-[12.5px] font-medium text-amber-950 dark:text-amber-100">
+                  No API key configured. Add a key in Settings to continue messaging.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.dispatchEvent(new CustomEvent("open-settings"))}
+                className="shrink-0 h-7 px-2.5 rounded-lg border-amber-500/30 bg-amber-500/20 hover:bg-amber-500/30 text-amber-900 dark:text-amber-100 text-[11.5px] font-semibold"
+              >
+                Add Key
+              </Button>
+            </div>
+          )}
           <div className="rounded-2xl bg-background/70 backdrop-blur-2xl border border-border/60 shadow-lg p-1.5 transition-all focus-within:shadow-xl focus-within:border-border focus-within:bg-background/90">
             <ChatInput 
               value={input}
               onChange={setInput}
               onSubmit={() => {
+                if (hasNoApiKey) {
+                  toast.error("Please add an API key in Settings before sending a message.");
+                  window.dispatchEvent(new CustomEvent("open-settings"));
+                  return;
+                }
                 sendMessage({ text: input });
                 setInput("");
               }}
               isLoading={isLoading}
               onStop={stop}
+              placeholder={hasNoApiKey ? "Add an API Key in Settings to continue..." : "Ask Anything"}
               className="shadow-none border-none bg-transparent"
               modelSelector={<ModelSelector value={selectedModel} onChange={setSelectedModel} />}
             />

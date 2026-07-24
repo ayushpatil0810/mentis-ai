@@ -2,7 +2,6 @@
 
 import { requireAuth } from "@/lib/auth/auth-utils";
 import { getDecryptedApiKey } from "@/lib/services/api-key";
-import { betterFetch } from "@better-fetch/fetch";
 
 export interface AIModel {
   id: string;
@@ -22,56 +21,60 @@ export async function getAvailableModelsAction(): Promise<AIModel[]> {
     getDecryptedApiKey(user.id, "gemini"),
   ]);
 
-  // If NO keys are configured, return the default model
+  // If NO keys are configured, return empty list (no default model)
   if (!openAiKey && !anthropicKey && !geminiKey) {
-    return [
-      {
-        id: "default/gpt-4o-mini",
-        name: "Mentis Default (GPT-4o Mini)",
-        providerId: "default",
-      },
-    ];
+    return [];
   }
 
-  // 1. Fetch OpenAI Models using betterFetch
+  // 1. Fetch OpenAI Models
   if (openAiKey) {
     try {
-      const { data, error } = await betterFetch<{ data: Array<{ id: string; created: number }> }>(
-        "",
-        {
-          baseURL: "https://api.openai.com/v1/models",
-          headers: { Authorization: `Bearer ${openAiKey}` },
-          timeout: 8000,
-        }
-      );
+      const response = await fetch("https://api.openai.com/v1/models", {
+        headers: { Authorization: `Bearer ${openAiKey}` },
+        signal: AbortSignal.timeout(8000),
+      });
 
-      if (!error && data?.data) {
-        const chatModels = data.data.filter(
-          (m: any) =>
-            m.id.startsWith("gpt-") ||
-            m.id.startsWith("o1-") ||
-            m.id.startsWith("o3-") ||
-            m.id.startsWith("chatgpt-"),
-        );
+      if (response.ok) {
+        const data = await response.json();
+        if (data && Array.isArray(data.data)) {
+          const chatModels = data.data.filter(
+            (m: any) =>
+              m.id.startsWith("gpt-") ||
+              m.id.startsWith("o1-") ||
+              m.id.startsWith("o3-") ||
+              m.id.startsWith("chatgpt-"),
+          );
 
-        chatModels.sort((a: any, b: any) => b.created - a.created); // newest first
+          chatModels.sort((a: any, b: any) => b.created - a.created);
 
-        for (const m of chatModels) {
-          models.push({
-            id: `openai/${m.id}`,
-            name: m.id, // e.g. "gpt-4o"
-            providerId: "openai",
-          });
+          for (const m of chatModels) {
+            models.push({
+              id: `openai/${m.id}`,
+              name: m.id,
+              providerId: "openai",
+            });
+          }
         }
       }
     } catch (e) {
-      console.error("Failed to fetch OpenAI models", e);
+      console.error("Failed to fetch OpenAI models dynamically", e);
+    }
+
+    if (!models.some((m) => m.providerId === "openai")) {
+      const fallbackOpenAi = [
+        { id: "openai/gpt-4o", name: "GPT-4o" },
+        { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
+        { id: "openai/o1-mini", name: "o1-mini" },
+        { id: "openai/o3-mini", name: "o3-mini" },
+      ];
+      for (const m of fallbackOpenAi) {
+        models.push({ ...m, providerId: "openai" });
+      }
     }
   }
 
   // 2. Fetch Anthropic Models
   if (anthropicKey) {
-    // Fallback static list in case API doesn't support models endpoint yet or fails
     const anthropicModels = [
       { id: "anthropic/claude-sonnet-5", name: "Claude Sonnet 5" },
       { id: "anthropic/claude-opus-4.7", name: "Claude Opus 4.7" },
@@ -95,36 +98,46 @@ export async function getAvailableModelsAction(): Promise<AIModel[]> {
     }
   }
 
-  // 3. Fetch Gemini Models using betterFetch
+  // 3. Fetch Gemini Models
   if (geminiKey) {
     try {
-      const { data, error } = await betterFetch<{ models: Array<{ name: string; displayName?: string; supportedGenerationMethods?: string[] }> }>(
-        "",
-        {
-          baseURL: "https://generativelanguage.googleapis.com/v1beta/models",
-          query: { key: geminiKey },
-          timeout: 8000,
-        }
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(geminiKey)}`,
+        { signal: AbortSignal.timeout(8000) }
       );
 
-      if (!error && data?.models) {
-        const chatModels = data.models.filter(
-          (m: any) =>
-            m.supportedGenerationMethods?.includes("generateContent") &&
-            m.name.includes("gemini"),
-        );
+      if (response.ok) {
+        const data = await response.json();
+        if (data && Array.isArray(data.models)) {
+          const chatModels = data.models.filter(
+            (m: any) =>
+              m.supportedGenerationMethods?.includes("generateContent") &&
+              m.name.includes("gemini"),
+          );
 
-        for (const m of chatModels) {
-          const id = m.name.replace("models/", "");
-          models.push({
-            id: `gemini/${id}`,
-            name: m.displayName || id,
-            providerId: "gemini",
-          });
+          for (const m of chatModels) {
+            const id = m.name.replace("models/", "");
+            models.push({
+              id: `gemini/${id}`,
+              name: m.displayName || id,
+              providerId: "gemini",
+            });
+          }
         }
       }
     } catch (e) {
-      console.error("Failed to fetch Gemini models", e);
+      console.error("Failed to fetch Gemini models dynamically", e);
+    }
+
+    if (!models.some((m) => m.providerId === "gemini")) {
+      const fallbackGemini = [
+        { id: "gemini/gemini-2.0-flash", name: "Gemini 2.0 Flash" },
+        { id: "gemini/gemini-1.5-pro", name: "Gemini 1.5 Pro" },
+        { id: "gemini/gemini-1.5-flash", name: "Gemini 1.5 Flash" },
+      ];
+      for (const m of fallbackGemini) {
+        models.push({ ...m, providerId: "gemini" });
+      }
     }
   }
 

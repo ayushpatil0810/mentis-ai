@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getAvailableModelsAction } from "@/app/actions/models";
 import { useEffect } from "react";
 import Image from "next/image";
-import { SparklesIcon, CheckmarkBadge01Icon } from "hugeicons-react";
+import { SparklesIcon, CheckmarkBadge01Icon, Key01Icon } from "hugeicons-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,7 +39,19 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
     }
   }, [models, value, onChange]);
 
-  if (!models || models.length === 0) return null;
+  if (!models || models.length === 0) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => window.dispatchEvent(new CustomEvent("open-settings"))}
+        className="h-8 px-3 rounded-xl border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 transition-colors text-[12.5px] font-medium flex items-center gap-1.5 cursor-pointer"
+      >
+        <Key01Icon className="w-3.5 h-3.5" />
+        <span>Add API Key</span>
+      </Button>
+    );
+  }
 
   const getIcon = (providerId: string, name: string) => {
     if (providerId === "anthropic") {
