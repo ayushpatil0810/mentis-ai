@@ -19,15 +19,22 @@ function truncateMessageContent(compressed: any, maxLength: number, label: strin
 
 export function mapDbMessagesToUiMessages(dbMessages: any[]): any[] {
   const uiMessages: any[] = [];
-  
+
+  // Accumulates tool invocations from intermediate assistant messages (tool-call-only
+  // steps). In a multi-step agentic flow the DB contains rows like:
+  //   assistant(tool-calls) → tool(results) → assistant(tool-calls) → tool(results) → assistant(text)
+  // We collect invocations from every intermediate step and attach them all to the
+  // next assistant row that has actual text, so the whole turn renders as one bubble.
+  let pendingToolInvocations: any[] = [];
+
   for (let i = 0; i < dbMessages.length; i++) {
     const msg = dbMessages[i];
-    
-    // Skip raw tool messages because they are merged into the assistant message that spawned them
+
+    // Skip raw tool messages — they are merged into the assistant message that spawned them
     if (msg.role === "tool") {
       continue;
     }
-    
+
     const uiMsg: any = {
       id: msg.id,
       role: msg.role,
@@ -37,60 +44,74 @@ export function mapDbMessagesToUiMessages(dbMessages: any[]): any[] {
       isActiveVersion: msg.isActiveVersion,
       metadata: msg.metadata,
     };
-    
-    // If it is an assistant message and contains parts
+
     if (msg.role === "assistant" && msg.parts && Array.isArray(msg.parts)) {
       const toolCalls = msg.parts.filter((p: any) => p.type === "tool-call");
+      const textPart = msg.parts.find((p: any) => p.type === "text");
       const msgRunId = msg.metadata?.runId;
-      
-      if (toolCalls.length > 0) {
-        uiMsg.toolInvocations = toolCalls.map((call: any) => {
-          let result: any = undefined;
-          let state: "call" | "result" = "call";
-          
-          // Look ahead in subsequent db messages to find the matching tool result
-          for (let j = i + 1; j < dbMessages.length; j++) {
-            const nextMsg = dbMessages[j];
-            
-            // If they both have runIds, verify they match to avoid linking tool output from another retry
-            if (msgRunId && nextMsg.metadata?.runId && msgRunId !== nextMsg.metadata?.runId) {
-              continue;
-            }
-            
-            if (nextMsg.role === "tool" && nextMsg.parts && Array.isArray(nextMsg.parts)) {
-              const matchingResult = nextMsg.parts.find(
-                (p: any) => p.toolCallId === call.toolCallId
-              );
-              if (matchingResult) {
-                result = matchingResult.result;
-                state = "result";
-                break;
-              }
+
+      // Resolve this message's tool-call parts into toolInvocations
+      const resolvedInvocations: any[] = toolCalls.map((call: any) => {
+        let result: any = undefined;
+        let state: "call" | "result" = "call";
+
+        // Look ahead to find the matching tool result message
+        for (let j = i + 1; j < dbMessages.length; j++) {
+          const nextMsg = dbMessages[j];
+
+          // Verify runIds match to avoid linking output from a different retry
+          if (msgRunId && nextMsg.metadata?.runId && msgRunId !== nextMsg.metadata?.runId) {
+            continue;
+          }
+
+          if (nextMsg.role === "tool" && nextMsg.parts && Array.isArray(nextMsg.parts)) {
+            const matchingResult = nextMsg.parts.find(
+              (p: any) => p.toolCallId === call.toolCallId
+            );
+            if (matchingResult) {
+              result = matchingResult.result;
+              state = "result";
+              break;
             }
           }
-          
-          return {
-            toolCallId: call.toolCallId,
-            toolName: call.toolName,
-            args: call.args || call.input,
-            input: call.args || call.input,
-            state,
-            result: result || call.output,
-            output: result || call.output,
-          };
-        });
-      }
-      
-      // Reconstruct simple string content for text block if present in parts
-      const textPart = msg.parts.find((p: any) => p.type === "text");
+        }
+
+        return {
+          toolCallId: call.toolCallId,
+          toolName: call.toolName,
+          args: call.args || call.input,
+          input: call.args || call.input,
+          state,
+          result: result || call.output,
+          output: result || call.output,
+        };
+      });
+
       if (textPart) {
+        // Final assistant step — has text. Merge all accumulated + current invocations.
         uiMsg.content = textPart.text;
+        const allInvocations = [...pendingToolInvocations, ...resolvedInvocations];
+        if (allInvocations.length > 0) {
+          uiMsg.toolInvocations = allInvocations;
+        }
+        pendingToolInvocations = []; // reset for the next conversational turn
+        uiMessages.push(uiMsg);
+      } else if (resolvedInvocations.length > 0) {
+        // Intermediate step: tool-call parts only, no text yet.
+        // Accumulate and do NOT push a standalone bubble.
+        pendingToolInvocations.push(...resolvedInvocations);
+      } else {
+        // Edge case: no tool calls and no text — render as-is.
+        uiMessages.push(uiMsg);
       }
+    } else {
+      // Non-assistant message (user, system). Flush any orphaned pending invocations
+      // (should not normally happen) and render normally.
+      pendingToolInvocations = [];
+      uiMessages.push(uiMsg);
     }
-    
-    uiMessages.push(uiMsg);
   }
-  
+
   return uiMessages;
 }
 
