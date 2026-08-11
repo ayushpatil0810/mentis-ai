@@ -74,7 +74,7 @@ flowchart TD
 
 ## Tech Stack
 
-- **Framework:** [Next.js 15+](https://nextjs.org/) (App Router, Server Actions)
+- **Framework:** [Next.js 16+](https://nextjs.org/) (App Router, Server Actions)
 - **Language:** [TypeScript](https://www.typescriptlang.org/)
 - **Styling:** [Tailwind CSS v4](https://tailwindcss.com/) & [shadcn/ui](https://ui.shadcn.com/)
 - **Database:** [PostgreSQL](https://www.postgresql.org/) with [Drizzle ORM](https://orm.drizzle.team/)
