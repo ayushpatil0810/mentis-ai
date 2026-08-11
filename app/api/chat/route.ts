@@ -182,17 +182,33 @@ export async function POST(req: Request) {
 
         const targetVersionGroupId = retryGroupId || ulid();
 
+        // Identify the final assistant message in the response sequence.
+        // In a multi-step tool-call flow, responseMessages looks like:
+        //   [assistant(tool-calls), tool(results), assistant(text), ...]
+        // Only the LAST assistant message (the one with actual text content) should
+        // carry a versionGroupId for retry/version grouping. Intermediate assistant
+        // messages that are purely tool-call steps and all tool result messages must
+        // be saved WITHOUT a versionGroupId — otherwise they surface as false "versions"
+        // (e.g. 1/3) in the version switcher after a page refresh.
+        const lastAssistantIndex = responseMsgs.reduce(
+          (last, msg, idx) => (msg.role === "assistant" ? idx : last),
+          -1
+        );
+
         // 6. Persist all generated messages (assistant replies and tool results) to the database
         if (responseMsgs.length > 0) {
-          for (const msg of responseMsgs) {
+          for (let msgIdx = 0; msgIdx < responseMsgs.length; msgIdx++) {
+            const msg = responseMsgs[msgIdx];
+            // Only the final assistant message participates in version grouping.
+            const isFinalAssistant = msg.role === "assistant" && msgIdx === lastAssistantIndex;
             await messageService.createMessage(user.id, {
               chatId,
               role: msg.role,
               content: typeof msg.content === "string" ? msg.content : "",
               parts: typeof msg.content !== "string" ? msg.content : undefined,
               status: "complete",
-              versionGroupId: msg.role === "assistant" || msg.role === "tool" ? targetVersionGroupId : undefined,
-              isActiveVersion: true,
+              versionGroupId: isFinalAssistant ? targetVersionGroupId : undefined,
+              isActiveVersion: isFinalAssistant ? true : undefined,
               metadata,
             });
           }
