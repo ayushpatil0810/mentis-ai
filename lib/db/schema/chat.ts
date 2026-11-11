@@ -1,5 +1,6 @@
 import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import { DEFAULT_CHAT_TITLE } from "@/lib/chat/title";
 import { user } from "./auth";
 
 export const chat = pgTable(
@@ -9,7 +10,7 @@ export const chat = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    title: text("title").notNull().default("New Chat"),
+    title: text("title").notNull().default(DEFAULT_CHAT_TITLE),
     model: text("model"), // e.g. openai/gpt-4o — per-thread model override
     systemPrompt: text("system_prompt"),
     isPinned: boolean("is_pinned").default(false).notNull(),

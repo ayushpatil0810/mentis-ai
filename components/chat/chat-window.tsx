@@ -28,6 +28,7 @@ import { Loading01Icon, Key01Icon } from "hugeicons-react";
 import { ChatContainerRoot } from "@/components/ui/chat-container";
 import { ModelSelector } from "./model-selector";
 import { mapDbMessagesToUiMessages } from "@/lib/tools/history-utils";
+import { DEFAULT_CHAT_TITLE } from "@/lib/chat/title";
 import { 
   GitBranch, Share, MoreHorizontal, Pin, Archive, Trash2, Edit, Check, Copy, Info, Download 
 } from "lucide-react";
@@ -229,6 +230,7 @@ export function ChatWindow({ chatId }: { chatId: string }) {
     }),
     onFinish: () => {
       queryClient.invalidateQueries({ queryKey: ["chats"] });
+      queryClient.invalidateQueries({ queryKey: ["chat", chatId] });
       queryClient.invalidateQueries({ queryKey: ["messages", chatId] });
     },
     onError: (err) => {
@@ -411,7 +413,7 @@ export function ChatWindow({ chatId }: { chatId: string }) {
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold truncate max-w-[150px] sm:max-w-[240px]">
-                {currentChat?.title || "New Chat"}
+                {currentChat?.title || DEFAULT_CHAT_TITLE}
               </span>
               {currentChat?.isPinned && (
                 <Pin className="h-3.5 w-3.5 text-muted-foreground/75 fill-muted-foreground/10 shrink-0" />

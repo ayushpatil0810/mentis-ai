@@ -1,7 +1,15 @@
 import { generateText } from "ai";
 import { getProvider } from "@/lib/ai/providers";
-import { getChatById, updateChat } from "@/lib/services/chat";
+import {
+  fallbackTitleFromMessage,
+  sanitizeTitle,
+  usableChatTitle,
+  DEFAULT_CHAT_TITLE,
+} from "@/lib/chat/title";
+import { getChatById, updateChatTitleIfDefault } from "@/lib/services/chat";
 import { logger } from "@/lib/utils/logger";
+
+const TITLE_TIMEOUT_MS = 8000;
 
 export async function generateTitle(
   chatId: string,
@@ -9,44 +17,83 @@ export async function generateTitle(
   firstUserMessage: string,
   firstAssistantResponse: string,
   providerName: string,
-  modelName: string
+  modelName: string,
 ) {
   try {
-    // 1. Fetch current chat to check if it's already titled
     const chat = await getChatById(userId, chatId);
-    
-    // Only generate if it is currently "New Chat" (default title)
-    if (chat.title !== "New Chat") {
+
+    if (chat.title !== DEFAULT_CHAT_TITLE) {
       return;
     }
 
-    logger.info("Generating chat title asynchronously", { chatId });
+    logger.info("Generating chat title", { chatId });
 
-    // 2. Instantiate provider and model
-    const provider = await getProvider(userId, providerName);
-    const model = provider(modelName);
+    const generated = await generateModelTitle(
+      userId,
+      providerName,
+      modelName,
+      firstUserMessage,
+      firstAssistantResponse,
+    );
+    const title = generated || fallbackTitleFromMessage(firstUserMessage);
 
-    // 3. Generate title
-    const prompt = `You are a conversation title generator. Analyze the following conversation start and generate a concise title (3 to 6 words).
-Do NOT use quotes, markdown formatting, or any introductory text. Output ONLY the title itself.
+    if (!title) {
+      logger.warn("Chat title generation produced no usable title", { chatId });
+      return;
+    }
 
-User message: "${firstUserMessage.slice(0, 500)}"
-Assistant response: "${firstAssistantResponse.slice(0, 1000)}"`;
-
-    const { text } = await generateText({
-      model,
-      prompt,
-      maxOutputTokens: 20,
-    });
-
-    const cleanTitle = text.replace(/["']/g, "").trim();
-
-    if (cleanTitle) {
-      // 4. Update the chat title
-      await updateChat(userId, chatId, { title: cleanTitle });
-      logger.info("Successfully updated chat title", { chatId, title: cleanTitle });
+    // Update only while the title is still the default, so a rename made
+    // while the model call is in flight is left alone.
+    const updated = await updateChatTitleIfDefault(userId, chatId, title);
+    if (updated) {
+      logger.info("Updated chat title", {
+        chatId,
+        title,
+        source: generated ? "model" : "fallback",
+      });
     }
   } catch (error) {
     logger.error("Failed to generate chat title", error);
+  }
+}
+
+async function generateModelTitle(
+  userId: string,
+  providerName: string,
+  modelName: string,
+  firstUserMessage: string,
+  firstAssistantResponse: string,
+): Promise<string> {
+  try {
+    const provider = await getProvider(userId, providerName);
+    const model = provider(modelName);
+    const userExcerpt = firstUserMessage.slice(0, 500);
+    const assistantExcerpt = firstAssistantResponse.slice(0, 1000);
+
+    const prompt = `You are a conversation title generator. Analyze the following conversation start and generate a concise title (3 to 6 words).
+Do NOT use quotes, markdown formatting, or any introductory text. Output ONLY the title itself.
+
+User message: "${userExcerpt}"
+Assistant response: "${assistantExcerpt}"`;
+
+    const { text, finishReason } = await generateText({
+      model,
+      prompt,
+      // High enough that a model which still spends a few tokens on reasoning
+      // can finish the title. Truncated output is discarded below.
+      maxOutputTokens: 256,
+      reasoning: "none",
+      timeout: TITLE_TIMEOUT_MS,
+    });
+
+    if (finishReason === "length") {
+      logger.warn("Chat title generation hit the output limit", { providerName, modelName });
+      return "";
+    }
+
+    return usableChatTitle(sanitizeTitle(text));
+  } catch (error) {
+    logger.error("Chat title model call failed", error);
+    return "";
   }
 }

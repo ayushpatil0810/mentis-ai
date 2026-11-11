@@ -8,6 +8,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 import { getTools } from "@/server/tools/registry";
 import { generateTitle } from "@/server/tools/title-generator";
+import { DEFAULT_CHAT_TITLE } from "@/lib/chat/title";
 import { buildSystemPrompt } from "@/server/prompts/builder";
 import { trimDbMessages, compressMessageHistory } from "@/lib/tools/history-utils";
 import { analyzePromptTokens } from "@/server/prompts/analyzer";
@@ -137,6 +138,16 @@ export async function POST(req: Request) {
       systemPrompt = `${systemPrompt}\n\n# User-defined Custom Instructions\n${chatObj.systemPrompt}`;
     }
 
+    const titleUserText = (
+      latestUserMsgContent ||
+      dbMessages.find((message) => message.role === "user")?.content ||
+      ""
+    ).trim();
+    // Retry on later turns, including after a stopped or failed first reply,
+    // until a real title has been stored.
+    const shouldGenerateTitle =
+      chatObj?.title === DEFAULT_CHAT_TITLE && titleUserText.length > 0;
+
     // Run dynamic runtime token analysis
     analyzePromptTokens({
       systemPrompt,
@@ -225,16 +236,16 @@ export async function POST(req: Request) {
           });
         }
 
-        // 7. Generate title asynchronously if this is the first message exchange
-        if (!retryGroupId && dbMessages.length <= 1 && latestUserMsgContent) {
-          generateTitle(
+        // 7. Title the chat before the stream closes so the client refetch sees it.
+        if (shouldGenerateTitle) {
+          await generateTitle(
             chatId,
             user.id,
-            latestUserMsgContent,
-            event.text,
+            titleUserText,
+            event.text || "",
             targetProviderName,
-            targetModelName
-          ).catch((err) => logger.error("Title generation background error", err));
+            targetModelName,
+          );
         }
       },
     });
