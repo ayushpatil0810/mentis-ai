@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getAvailableModelsAction } from "@/app/actions/models";
+import { saveModelPreference } from "@/lib/chat/model-preference";
 import { useEffect } from "react";
 import Image from "next/image";
 import { SparklesIcon, CheckmarkBadge01Icon, Key01Icon } from "hugeicons-react";
@@ -19,9 +20,10 @@ import { Button } from "@/components/ui/button";
 interface ModelSelectorProps {
   value: string;
   onChange: (value: string) => void;
+  autoSelect?: boolean;
 }
 
-export function ModelSelector({ value, onChange }: ModelSelectorProps) {
+export function ModelSelector({ value, onChange, autoSelect = true }: ModelSelectorProps) {
   const { data: models } = useQuery({
     queryKey: ["available-models"],
     queryFn: () => getAvailableModelsAction(),
@@ -29,15 +31,12 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
 
   // Automatically set a default value if not set and models are loaded
   useEffect(() => {
-    if (models && models.length > 0 && !value) {
-      const savedModel = localStorage.getItem("mentis_selected_model");
-      if (savedModel && models.some((m) => m.id === savedModel)) {
-        onChange(savedModel);
-      } else {
-        onChange(models[0].id);
-      }
-    }
-  }, [models, value, onChange]);
+    if (!autoSelect || !models || models.length === 0 || value) return;
+    const savedModel = localStorage.getItem("mentis_selected_model");
+    const next = savedModel && models.some((m) => m.id === savedModel) ? savedModel : models[0].id;
+    saveModelPreference(next);
+    onChange(next);
+  }, [autoSelect, models, value, onChange]);
 
   if (!models || models.length === 0) {
     return (
@@ -124,7 +123,7 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
                 key={model.id}
                 onClick={() => {
                   onChange(model.id);
-                  localStorage.setItem("mentis_selected_model", model.id);
+                  saveModelPreference(model.id);
                 }}
                 className="flex items-center justify-between px-2 py-2 cursor-pointer rounded-xl text-[13px] hover:bg-muted focus:bg-muted"
               >

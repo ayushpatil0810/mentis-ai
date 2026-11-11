@@ -5,8 +5,8 @@ import { MessageRenderer } from "./message-renderer";
 import { cn } from "@/lib/utils";
 import { Loader } from "@/components/ui/loader";
 import { ToolCall } from "./tool-call";
+import { getMessageText } from "@/lib/chat/message-text";
 import { GitBranch, RotateCw, ChevronLeft, ChevronRight, Info } from "lucide-react";
-import { calculateCost } from "@/lib/ai/costs";
 
 // Inner Request Inspector Component
 function RequestInspector({ metadata }: { metadata: any }) {
@@ -15,9 +15,9 @@ function RequestInspector({ metadata }: { metadata: any }) {
   const latency = metadata.latencyMs ? `${(metadata.latencyMs / 1000).toFixed(2)}s` : "N/A";
   const cost = metadata.cost !== undefined ? `$${Number(metadata.cost).toFixed(6)}` : "N/A";
   const usage = metadata.usage;
-  const promptTokens = usage?.promptTokens ?? 0;
-  const completionTokens = usage?.completionTokens ?? 0;
-  const totalTokens = usage?.totalTokens ?? 0;
+  const promptTokens = usage?.inputTokens ?? usage?.promptTokens ?? 0;
+  const completionTokens = usage?.outputTokens ?? usage?.completionTokens ?? 0;
+  const totalTokens = usage?.totalTokens ?? promptTokens + completionTokens;
   const contextCount = metadata.contextMessageCount ?? "N/A";
   const toolsUsed = metadata.toolNames || [];
 
@@ -86,9 +86,7 @@ export const MessageItem = memo(function MessageItem({
   onRetry
 }: MessageItemProps) {
   const isUser = message.role === "user";
-  const textContent = message.content || 
-    (message.parts && Array.isArray(message.parts) ? message.parts.map((p: any) => p.text || "").join("") : "") || 
-    message.text || "";
+  const textContent = getMessageText(message);
 
   // Dynamically extract toolInvocations from message.toolInvocations or message.parts
   const toolInvocations = message.toolInvocations || 

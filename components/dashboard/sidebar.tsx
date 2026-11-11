@@ -42,6 +42,7 @@ interface SidebarProps {
 
 export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesktopCollapsed = false, setIsDesktopCollapsed }: SidebarProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [chatToRename, setChatToRename] = useState<any>(null);
   const [renameTitle, setRenameTitle] = useState("");
   const [chatToDelete, setChatToDelete] = useState<any>(null);
@@ -56,12 +57,17 @@ export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesk
     return () => window.removeEventListener("open-settings", handleOpenSettings);
   }, []);
 
-  const { data: response, isLoading } = useQuery({
+  const { data: response, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["chats"],
     queryFn: () => getChatsAction(),
     staleTime: 60000, // 1 minute
   });
 
+  const loadError = isError
+    ? (error instanceof Error ? error.message : "Couldn't load chats")
+    : response && !response.success
+      ? response.error
+      : null;
   const chats = response?.success ? response.data : [];
 
   const updateChatMutation = useMutation({
@@ -71,6 +77,7 @@ export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesk
       return res.data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["chats"] }),
+    onError: (err: Error) => toast.error(err.message || "Couldn't update the chat"),
   });
 
   const deleteChatMutation = useMutation({
@@ -86,10 +93,12 @@ export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesk
       }
       toast.success("Chat deleted");
     },
+    onError: (err: Error) => toast.error(err.message || "Couldn't delete the chat"),
   });
 
   const pinnedChats = chats.filter((c: any) => c.isPinned && !c.isArchived);
   const recentChats = chats.filter((c: any) => !c.isPinned && !c.isArchived);
+  const archivedChats = chats.filter((c: any) => c.isArchived);
 
   const handleRename = (chat: any) => {
     setChatToRename(chat);
@@ -236,19 +245,37 @@ export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesk
                   <div key={i} className="h-5 bg-muted rounded-md w-full animate-pulse opacity-50" />
                 ))}
               </div>
+            ) : loadError ? (
+              <div className="flex flex-col items-center justify-center h-40 text-center px-4 gap-2">
+                <p className="text-sm font-medium text-muted-foreground">{loadError}</p>
+                <button
+                  onClick={() => refetch()}
+                  className="text-xs font-medium text-foreground underline underline-offset-2"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : chats.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-40 text-center px-4">
+                <Message01Icon className="w-8 h-8 opacity-20 mb-2" />
+                <p className="text-sm font-medium text-muted-foreground/60">No chats yet</p>
+                <p className="text-xs text-muted-foreground/40 mt-1">Start a new conversation</p>
+              </div>
             ) : (
               <>
-                {chats.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-40 text-center px-4">
-                    <Message01Icon className="w-8 h-8 opacity-20 mb-2" />
-                    <p className="text-sm font-medium text-muted-foreground/60">No chats yet</p>
-                    <p className="text-xs text-muted-foreground/40 mt-1">Start a new conversation</p>
-                  </div>
-                ) : (
-                  <>
-                    {renderSection("Pinned", pinnedChats)}
-                    {renderSection("Recent", recentChats)}
-                  </>
+                {renderSection("Pinned", pinnedChats)}
+                {renderSection("Recent", recentChats)}
+                {archivedChats.length > 0 && (
+                  showArchived ? (
+                    renderSection("Archived", archivedChats)
+                  ) : (
+                    <button
+                      onClick={() => setShowArchived(true)}
+                      className="mx-4 mt-2 text-xs font-medium text-muted-foreground/70 hover:text-foreground text-left"
+                    >
+                      Archived ({archivedChats.length})
+                    </button>
+                  )
                 )}
               </>
             )}

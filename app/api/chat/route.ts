@@ -127,6 +127,7 @@ export async function POST(req: Request) {
     }
 
     const provider = await getProvider(user.id, targetProviderName);
+    const storedModelId = `${targetProviderName}/${targetModelName}`;
     const tools = getTools({ userId: user.id });
 
     // Load user custom prompt if available
@@ -136,6 +137,12 @@ export async function POST(req: Request) {
     
     if (chatObj?.systemPrompt) {
       systemPrompt = `${systemPrompt}\n\n# User-defined Custom Instructions\n${chatObj.systemPrompt}`;
+    }
+
+    if (chatObj && chatObj.model !== storedModelId) {
+      await chatService.updateChat(user.id, chatId, { model: storedModelId }).catch((err) => {
+        logger.error("Failed to store chat model", err);
+      });
     }
 
     const titleUserText = (
@@ -253,6 +260,7 @@ export async function POST(req: Request) {
     return createUIMessageStreamResponse({
       stream: toUIMessageStream({
         stream: result.stream,
+        sendReasoning: false,
         onError: (error) => {
           logger.error("Chat Stream Error", error);
           if (error instanceof Error) {

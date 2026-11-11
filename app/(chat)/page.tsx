@@ -38,7 +38,6 @@ export default function NewChatPage() {
         throw new Error(response.error);
       }
       sessionStorage.setItem("initial_message", messageContent);
-      sessionStorage.setItem("mentis_selected_model", selectedModel);
       return response.data;
     },
     onSuccess: (chat) => {

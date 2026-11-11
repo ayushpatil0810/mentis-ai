@@ -32,6 +32,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
+import { HighlightedText } from "./highlighted-text";
 
 interface SearchResult {
   conversations: any[];
@@ -131,9 +132,9 @@ export function CommandPalette() {
               >
                 <MessageSquare className="h-4 w-4 shrink-0 opacity-60" />
                 <div className="flex-1 truncate">
-                  <span
-                    dangerouslySetInnerHTML={{ __html: c.highlightedTitle || c.title }}
-                    className="font-medium text-foreground [&_mark]:bg-yellow-500/20 [&_mark]:text-yellow-600 dark:[&_mark]:text-yellow-400 [&_mark]:font-medium [&_mark]:px-0.5 [&_mark]:rounded"
+                  <HighlightedText
+                    value={c.highlightedTitle || c.title}
+                    className="font-medium text-foreground"
                   />
                 </div>
                 {c.isPinned && (
@@ -162,9 +163,9 @@ export function CommandPalette() {
               >
                 <GitBranch className="h-4 w-4 shrink-0 opacity-60 text-primary" />
                 <div className="flex-1 truncate">
-                  <span
-                    dangerouslySetInnerHTML={{ __html: b.highlightedTitle || b.title }}
-                    className="font-medium text-foreground [&_mark]:bg-yellow-500/20 [&_mark]:text-yellow-600 dark:[&_mark]:text-yellow-400 [&_mark]:font-medium [&_mark]:px-0.5 [&_mark]:rounded"
+                  <HighlightedText
+                    value={b.highlightedTitle || b.title}
+                    className="font-medium text-foreground"
                   />
                 </div>
                 <span className="text-[10px] text-muted-foreground/60 opacity-80">Branch</span>
@@ -188,9 +189,9 @@ export function CommandPalette() {
               >
                 <Share2 className="h-4 w-4 shrink-0 opacity-60 text-emerald-500" />
                 <div className="flex-1 truncate">
-                  <span
-                    dangerouslySetInnerHTML={{ __html: s.highlightedTitle || s.title }}
-                    className="font-medium text-foreground [&_mark]:bg-yellow-500/20 [&_mark]:text-yellow-600 dark:[&_mark]:text-yellow-400 [&_mark]:font-medium [&_mark]:px-0.5 [&_mark]:rounded"
+                  <HighlightedText
+                    value={s.highlightedTitle || s.title}
+                    className="font-medium text-foreground"
                   />
                 </div>
                 <span className="text-[10px] text-emerald-500/80 bg-emerald-500/5 px-1.5 py-0.5 rounded border border-emerald-500/10">Shared</span>
@@ -220,9 +221,9 @@ export function CommandPalette() {
                     {new Date(m.createdAt).toLocaleDateString()}
                   </span>
                 </div>
-                <div 
-                  dangerouslySetInnerHTML={{ __html: m.highlightedContent || m.content }}
-                  className="text-xs text-muted-foreground/90 line-clamp-2 w-full pl-1 border-l border-border/40 [&_mark]:bg-yellow-500/20 [&_mark]:text-yellow-600 dark:[&_mark]:text-yellow-400 [&_mark]:font-medium [&_mark]:px-0.5 [&_mark]:rounded"
+                <HighlightedText
+                  value={m.highlightedContent || m.content}
+                  className="text-xs text-muted-foreground/90 line-clamp-2 w-full pl-1 border-l border-border/40"
                 />
               </CommandItem>
             ))}
