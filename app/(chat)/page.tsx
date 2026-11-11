@@ -1,12 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ulid } from "ulid";
 import { createChatAction } from "@/app/actions/chat";
 import { DEFAULT_CHAT_TITLE } from "@/lib/chat/title";
+import { readSavedModel } from "@/lib/chat/model-preference";
+import {
+  dropOptimisticChat,
+  expectChatCreate,
+  optimisticChat,
+  rejectChatCreate,
+  resolveChatCreate,
+  seedOptimisticChat,
+  stageInitialMessage,
+} from "@/lib/chat/optimistic";
 import { getAvailableModelsAction } from "@/app/actions/models";
 import { ChatInput } from "@/components/chat/chat-input";
+import { MessageList } from "@/components/chat/message-list";
 import { ModelSelector } from "@/components/chat/model-selector";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -21,38 +33,64 @@ import {
 
 export default function NewChatPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const startingRef = useRef(false);
   const [content, setContent] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
 
   const { data: models, isLoading: isLoadingModels } = useQuery({
     queryKey: ["available-models"],
     queryFn: () => getAvailableModelsAction(),
+    staleTime: 5 * 60 * 1000,
   });
 
   const hasNoApiKey = !isLoadingModels && (!models || models.length === 0);
 
-  const createChatMutation = useMutation({
-    mutationFn: async (messageContent: string) => {
-      const response = await createChatAction({ title: DEFAULT_CHAT_TITLE });
-      if (!response.success) {
-        throw new Error(response.error);
-      }
-      sessionStorage.setItem("initial_message", messageContent);
-      return response.data;
-    },
-    onSuccess: (chat) => {
-      router.push(`/chat/${chat.id}`);
-    }
-  });
-
   const handleSubmit = (text: string) => {
-    if (!text.trim()) return;
+    const message = text.trim();
+    if (!message || startingRef.current) return;
     if (hasNoApiKey) {
       toast.error("Please add an API key in Settings before starting a chat.");
       window.dispatchEvent(new CustomEvent("open-settings"));
       return;
     }
-    createChatMutation.mutate(text);
+
+    startingRef.current = true;
+    const id = ulid();
+    const model = selectedModel || readSavedModel();
+    stageInitialMessage(id, message);
+    expectChatCreate(id);
+    seedOptimisticChat(queryClient, optimisticChat(id, model));
+    setContent("");
+    setPendingMessage(message);
+    router.push(`/chat/${id}`);
+
+    createChatAction({ id, title: DEFAULT_CHAT_TITLE, model: model || undefined })
+      .then((response) => {
+        if (!response.success) {
+          throw new Error(response.error);
+        }
+        queryClient.setQueryData(["chat", id], response);
+        queryClient.setQueryData(
+          ["chats"],
+          (current: { success: true; data: Array<{ id: string }> } | undefined) => {
+            if (!current?.success) return current;
+            const without = current.data.filter((chat) => chat.id !== id);
+            return { success: true, data: [response.data, ...without] };
+          },
+        );
+        resolveChatCreate(id);
+      })
+      .catch((err: unknown) => {
+        const error = err instanceof Error ? err : new Error("Couldn't start the chat");
+        rejectChatCreate(id, error);
+        dropOptimisticChat(queryClient, id);
+        toast.error(error.message);
+        startingRef.current = false;
+        setPendingMessage(null);
+        router.push("/");
+      });
   };
 
   const actions = [
@@ -64,6 +102,14 @@ export default function NewChatPage() {
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-y-auto relative bg-background">
+      {pendingMessage ? (
+        <MessageList
+          messages={[{ id: "pending-user", role: "user", parts: [{ type: "text", text: pendingMessage }] }]}
+          isLoading
+          readOnly
+        />
+      ) : (
+      <>
       {/* Soft Ambient Glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[300px] bg-gradient-to-b from-primary/5 via-primary/[0.01] to-transparent blur-3xl pointer-events-none -z-10" />
       
@@ -126,7 +172,7 @@ export default function NewChatPage() {
                 value={content}
                 onChange={setContent}
                 onSubmit={() => handleSubmit(content)}
-                isLoading={createChatMutation.isPending}
+                isLoading={false}
                 onStop={() => {}}
                 placeholder={hasNoApiKey ? "Add an API Key in Settings to start chatting..." : "Ask Anything"}
                 modelSelector={<ModelSelector value={selectedModel} onChange={setSelectedModel} />}
@@ -156,6 +202,8 @@ export default function NewChatPage() {
           
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

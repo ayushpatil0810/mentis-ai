@@ -7,6 +7,7 @@ import { NotFoundError, AuthError } from "../utils/errors";
 import { DEFAULT_CHAT_TITLE } from "../chat/title";
 
 const createChatSchema = z.object({
+  id: z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/i).optional(),
   title: z.string().optional(),
   model: z.string().optional(),
   systemPrompt: z.string().optional(),
@@ -16,7 +17,7 @@ export async function createChat(userId: string, data: z.infer<typeof createChat
   if (!userId) throw new AuthError();
   
   const parsed = createChatSchema.parse(data);
-  const id = ulid();
+  const id = parsed.id || ulid();
   
   const [newChat] = await db.insert(chat).values({
     id,

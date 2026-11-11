@@ -5,7 +5,7 @@ import * as chatService from "@/lib/services/chat";
 import * as messageService from "@/lib/services/message";
 import { safeAction } from "@/lib/utils/action";
 
-export async function createChatAction(data: { title?: string, model?: string, systemPrompt?: string }) {
+export async function createChatAction(data: { id?: string, title?: string, model?: string, systemPrompt?: string }) {
   return safeAction("createChat", async () => {
     const { user } = await requireAuth();
     return await chatService.createChat(user.id, data);

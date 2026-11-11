@@ -5,7 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getChatsAction, deleteChatAction, updateChatAction } from "@/app/actions/chat";
+import { getChatsAction, deleteChatAction, updateChatAction, getMessagesAction, getChatByIdAction } from "@/app/actions/chat";
+import { patchCachedChat, removeCachedChat } from "@/lib/chat/optimistic";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ThemeToggle } from "../ui/theme-toggle";
@@ -76,8 +77,17 @@ export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesk
       if (!res.success) throw new Error(res.error);
       return res.data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["chats"] }),
-    onError: (err: Error) => toast.error(err.message || "Couldn't update the chat"),
+    onMutate: async ({ id, data }) => {
+      await queryClient.cancelQueries({ queryKey: ["chats"] });
+      const previousChats = queryClient.getQueryData(["chats"]);
+      patchCachedChat(queryClient, id, data);
+      return { previousChats };
+    },
+    onError: (err: Error, _vars, context) => {
+      if (context?.previousChats) queryClient.setQueryData(["chats"], context.previousChats);
+      toast.error(err.message || "Couldn't update the chat");
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["chats"] }),
   });
 
   const deleteChatMutation = useMutation({
@@ -86,19 +96,60 @@ export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesk
       if (!res.success) throw new Error(res.error);
       return res.data;
     },
-    onSuccess: (_, deletedId) => {
-      queryClient.invalidateQueries({ queryKey: ["chats"] });
-      if (pathname === `/chat/${deletedId}`) {
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ["chats"] });
+      const previousChats = queryClient.getQueryData(["chats"]);
+      removeCachedChat(queryClient, id);
+      if (pathname === `/chat/${id}`) {
         router.push("/");
       }
+      return { previousChats };
+    },
+    onError: (err: Error, _id, context) => {
+      if (context?.previousChats) queryClient.setQueryData(["chats"], context.previousChats);
+      toast.error(err.message || "Couldn't delete the chat");
+    },
+    onSuccess: () => {
       toast.success("Chat deleted");
     },
-    onError: (err: Error) => toast.error(err.message || "Couldn't delete the chat"),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["chats"] }),
   });
 
   const pinnedChats = chats.filter((c: any) => c.isPinned && !c.isArchived);
   const recentChats = chats.filter((c: any) => !c.isPinned && !c.isArchived);
   const archivedChats = chats.filter((c: any) => c.isArchived);
+
+  const warmChatIds = [...pinnedChats, ...recentChats].slice(0, 8).map((chat: { id: string }) => chat.id).join(",");
+
+  useEffect(() => {
+    if (!warmChatIds) return;
+    for (const id of warmChatIds.split(",")) {
+      queryClient.prefetchQuery({
+        queryKey: ["messages", id],
+        queryFn: () => getMessagesAction(id),
+        staleTime: Infinity,
+      });
+      queryClient.prefetchQuery({
+        queryKey: ["chat", id],
+        queryFn: () => getChatByIdAction(id),
+        staleTime: 30_000,
+      });
+    }
+  }, [warmChatIds, queryClient]);
+
+  const prefetchChat = (id: string) => {
+    router.prefetch(`/chat/${id}`);
+    queryClient.prefetchQuery({
+      queryKey: ["messages", id],
+      queryFn: () => getMessagesAction(id),
+      staleTime: Infinity,
+    });
+    queryClient.prefetchQuery({
+      queryKey: ["chat", id],
+      queryFn: () => getChatByIdAction(id),
+      staleTime: 30_000,
+    });
+  };
 
   const handleRename = (chat: any) => {
     setChatToRename(chat);
@@ -119,6 +170,8 @@ export function DashboardSidebar({ isMobileMenuOpen, setIsMobileMenuOpen, isDesk
               <div key={chat.id} className="group relative flex items-center w-full">
                 <Link 
                   href={`/chat/${chat.id}`}
+                  onMouseEnter={() => prefetchChat(chat.id)}
+                  onFocus={() => prefetchChat(chat.id)}
                   className={cn(
                     "flex-1 flex items-center gap-2.5 h-8 pl-2.5 pr-8 rounded-lg text-[13px] transition-all duration-200 select-none min-w-0",
                     isActive 

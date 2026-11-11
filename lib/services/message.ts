@@ -1,7 +1,7 @@
-import { eq, asc, and, ne, sql } from "drizzle-orm";
+import { eq, asc, and, sql } from "drizzle-orm";
 import { db } from "../db";
 import { message, chat } from "../db/schema";
-import { getChatById, updateChat } from "./chat";
+import { getChatById } from "./chat";
 import { ulid } from "ulid";
 import { z } from "zod";
 import { AuthError, NotFoundError } from "../utils/errors";
@@ -18,58 +18,83 @@ const createMessageSchema = z.object({
   createdAt: z.date().optional(),
 });
 
-export async function createMessage(userId: string, data: z.infer<typeof createMessageSchema>) {
+type MessageInput = z.infer<typeof createMessageSchema>;
+
+export async function createMessage(userId: string, data: MessageInput) {
+  const [created] = await createMessages(userId, data.chatId, [data]);
+  return created;
+}
+
+/** Insert a turn in one transaction: one ownership check, one lastMessageAt update. */
+export async function createMessages(
+  userId: string,
+  chatId: string,
+  rows: Array<Omit<MessageInput, "chatId">>,
+  options?: { skipOwnershipCheck?: boolean },
+) {
   if (!userId) throw new AuthError();
-  
-  const parsed = createMessageSchema.parse(data);
-  
-  // Verify the chat belongs to the user
-  await getChatById(userId, parsed.chatId);
-  
-  const id = ulid();
-  const vGroupId = parsed.versionGroupId || (parsed.role === "assistant" ? id : null);
-  const isActive = parsed.isActiveVersion ?? true;
-  
-  // Run inside transaction to ensure atomicity when deactivating old versions
-  const newMessage = await db.transaction(async (tx) => {
-    if (vGroupId && isActive) {
-      await tx.update(message)
-        .set({ isActiveVersion: false })
-        .where(
-          and(
-            eq(message.versionGroupId, vGroupId),
-            eq(message.chatId, parsed.chatId)
-          )
-        );
-    }
-    
-    const [inserted] = await tx.insert(message).values({
+  if (rows.length === 0) return [];
+
+  if (!options?.skipOwnershipCheck) {
+    await getChatById(userId, chatId);
+  }
+
+  const now = Date.now();
+  const values = rows.map((row, index) => {
+    const parsed = createMessageSchema.parse({ ...row, chatId });
+    const id = ulid();
+    const versionGroupId = parsed.versionGroupId || (parsed.role === "assistant" ? id : null);
+    return {
       id,
-      chatId: parsed.chatId,
+      chatId,
       role: parsed.role,
       content: parsed.content,
       status: parsed.status || "complete",
       parts: parsed.parts,
       metadata: parsed.metadata,
-      versionGroupId: vGroupId,
-      isActiveVersion: isActive,
-      createdAt: parsed.createdAt || new Date(),
-    }).returning();
-    
-    return inserted;
+      versionGroupId,
+      isActiveVersion: parsed.isActiveVersion ?? true,
+      createdAt: parsed.createdAt || new Date(now + index),
+    };
   });
-  
-  // Update the chat's lastMessageAt timestamp
-  await updateChat(userId, parsed.chatId, { lastMessageAt: new Date() });
-  
-  return newMessage;
+
+  const inserted = await db.transaction(async (tx) => {
+    for (const row of values) {
+      if (!row.versionGroupId || !row.isActiveVersion) continue;
+      await tx
+        .update(message)
+        .set({ isActiveVersion: false })
+        .where(and(eq(message.versionGroupId, row.versionGroupId), eq(message.chatId, chatId)));
+    }
+
+    const created = await tx.insert(message).values(values).returning();
+
+    const [updatedChat] = await tx
+      .update(chat)
+      .set({ lastMessageAt: new Date() })
+      .where(and(eq(chat.id, chatId), eq(chat.userId, userId)))
+      .returning({ id: chat.id });
+
+    if (!updatedChat) {
+      throw new NotFoundError("Chat not found");
+    }
+
+    return created;
+  });
+
+  return inserted;
 }
 
-export async function getMessagesByChatId(userId: string, chatId: string) {
+export async function getMessagesByChatId(
+  userId: string,
+  chatId: string,
+  options?: { skipOwnershipCheck?: boolean },
+) {
   if (!userId) throw new AuthError();
-  
-  // Verify ownership
-  await getChatById(userId, chatId);
+
+  if (!options?.skipOwnershipCheck) {
+    await getChatById(userId, chatId);
+  }
   
   return await db.select()
     .from(message)

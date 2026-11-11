@@ -69,12 +69,14 @@ async function generateModelTitle(
     const model = provider(modelName);
     const userExcerpt = firstUserMessage.slice(0, 500);
     const assistantExcerpt = firstAssistantResponse.slice(0, 1000);
+    const conversation = assistantExcerpt
+      ? `User message: "${userExcerpt}"\nAssistant response: "${assistantExcerpt}"`
+      : `User message: "${userExcerpt}"`;
 
-    const prompt = `You are a conversation title generator. Analyze the following conversation start and generate a concise title (3 to 6 words).
+    const prompt = `You are a conversation title generator. Generate a concise title (3 to 6 words).
 Do NOT use quotes, markdown formatting, or any introductory text. Output ONLY the title itself.
 
-User message: "${userExcerpt}"
-Assistant response: "${assistantExcerpt}"`;
+${conversation}`;
 
     const { text, finishReason } = await generateText({
       model,

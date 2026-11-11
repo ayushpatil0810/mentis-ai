@@ -29,7 +29,8 @@ import { ChatContainerRoot } from "@/components/ui/chat-container";
 import { ModelSelector } from "./model-selector";
 import { mapDbMessagesToUiMessages } from "@/lib/tools/history-utils";
 import { DEFAULT_CHAT_TITLE } from "@/lib/chat/title";
-import { readSavedModel, saveModelPreference } from "@/lib/chat/model-preference";
+import { readSavedModel, saveModelPreference, pickDefaultModelId } from "@/lib/chat/model-preference";
+import { patchCachedChat, peekInitialMessage, takeInitialMessage, waitForChatCreate } from "@/lib/chat/optimistic";
 import { 
   GitBranch, Share, MoreHorizontal, Pin, Archive, Trash2, Edit, Check, Copy, Info, Download 
 } from "lucide-react";
@@ -51,9 +52,17 @@ export function ChatWindow({ chatId }: { chatId: string }) {
   const searchParams = useSearchParams();
   const highlightMsgId = searchParams.get("msg");
   const [input, setInput] = useState("");
-  const [selectedModel, setSelectedModel] = useState("");
+  const [selectedModel, setSelectedModel] = useState(() => {
+    const cached = queryClient.getQueryData<{ success: boolean; data?: { model?: string | null } }>([
+      "chat",
+      chatId,
+    ]);
+    if (cached?.success && cached.data?.model) return cached.data.model;
+    return readSavedModel();
+  });
   const hydratedChatId = useRef<string | null>(null);
   const modelInitializedForChat = useRef<string | null>(null);
+  const allowInitialSend = useRef(true);
 
   // UI state variables
   const [isBranchDialogOpen, setIsBranchDialogOpen] = useState(false);
@@ -75,6 +84,7 @@ export function ChatWindow({ chatId }: { chatId: string }) {
   const { data: chatResponse, isFetched: isChatFetched } = useQuery({
     queryKey: ["chat", chatId],
     queryFn: () => getChatByIdAction(chatId),
+    staleTime: 30_000,
   });
 
   const currentChat = chatResponse?.success ? chatResponse.data : null;
@@ -104,6 +114,7 @@ export function ChatWindow({ chatId }: { chatId: string }) {
   const { data: models, isLoading: isLoadingModels } = useQuery({
     queryKey: ["available-models"],
     queryFn: () => getAvailableModelsAction(),
+    staleTime: 5 * 60 * 1000,
   });
 
   const hasNoApiKey = !isLoadingModels && (!models || models.length === 0);
@@ -117,11 +128,26 @@ export function ChatWindow({ chatId }: { chatId: string }) {
       if (!res.success) throw new Error(res.error);
       return res.data;
     },
+    onMutate: async (title: string) => {
+      await queryClient.cancelQueries({ queryKey: ["chats"] });
+      await queryClient.cancelQueries({ queryKey: ["chat", chatId] });
+      const previousChats = queryClient.getQueryData(["chats"]);
+      const previousChat = queryClient.getQueryData(["chat", chatId]);
+      patchCachedChat(queryClient, chatId, { title });
+      setIsRenameDialogOpen(false);
+      return { previousChats, previousChat };
+    },
     onSuccess: () => {
+      toast.success("Conversation renamed");
+    },
+    onError: (err: Error, _title, context) => {
+      if (context?.previousChats) queryClient.setQueryData(["chats"], context.previousChats);
+      if (context?.previousChat) queryClient.setQueryData(["chat", chatId], context.previousChat);
+      toast.error(err.message || "Couldn't rename the conversation");
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["chat", chatId] });
       queryClient.invalidateQueries({ queryKey: ["chats"] });
-      setIsRenameDialogOpen(false);
-      toast.success("Conversation renamed");
     },
   });
 
@@ -131,10 +157,25 @@ export function ChatWindow({ chatId }: { chatId: string }) {
       if (!res.success) throw new Error(res.error);
       return res.data;
     },
+    onMutate: async (isPinned: boolean) => {
+      await queryClient.cancelQueries({ queryKey: ["chats"] });
+      await queryClient.cancelQueries({ queryKey: ["chat", chatId] });
+      const previousChats = queryClient.getQueryData(["chats"]);
+      const previousChat = queryClient.getQueryData(["chat", chatId]);
+      patchCachedChat(queryClient, chatId, { isPinned });
+      return { previousChats, previousChat };
+    },
     onSuccess: (data) => {
+      toast.success(data.isPinned ? "Conversation pinned" : "Conversation unpinned");
+    },
+    onError: (err: Error, _value, context) => {
+      if (context?.previousChats) queryClient.setQueryData(["chats"], context.previousChats);
+      if (context?.previousChat) queryClient.setQueryData(["chat", chatId], context.previousChat);
+      toast.error(err.message || "Couldn't update the conversation");
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["chat", chatId] });
       queryClient.invalidateQueries({ queryKey: ["chats"] });
-      toast.success(data.isPinned ? "Conversation pinned" : "Conversation unpinned");
     },
   });
 
@@ -144,11 +185,22 @@ export function ChatWindow({ chatId }: { chatId: string }) {
       if (!res.success) throw new Error(res.error);
       return res.data;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["chat", chatId] });
-      queryClient.invalidateQueries({ queryKey: ["chats"] });
-      toast.success(data.isArchived ? "Conversation archived" : "Conversation unarchived");
+    onMutate: async (isArchived: boolean) => {
+      await queryClient.cancelQueries({ queryKey: ["chats"] });
+      const previousChats = queryClient.getQueryData(["chats"]);
+      patchCachedChat(queryClient, chatId, { isArchived });
       router.push("/");
+      return { previousChats };
+    },
+    onSuccess: (data) => {
+      toast.success(data.isArchived ? "Conversation archived" : "Conversation unarchived");
+    },
+    onError: (err: Error, _value, context) => {
+      if (context?.previousChats) queryClient.setQueryData(["chats"], context.previousChats);
+      toast.error(err.message || "Couldn't update the conversation");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["chats"] });
     },
   });
 
@@ -158,10 +210,25 @@ export function ChatWindow({ chatId }: { chatId: string }) {
       if (!res.success) throw new Error(res.error);
       return res.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["chats"] });
-      toast.success("Conversation deleted");
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["chats"] });
+      const previousChats = queryClient.getQueryData(["chats"]);
+      queryClient.setQueryData(["chats"], (current: { success: true; data: Array<{ id: string }> } | undefined) => {
+        if (!current?.success) return current;
+        return { success: true, data: current.data.filter((chat) => chat.id !== chatId) };
+      });
       router.push("/");
+      return { previousChats };
+    },
+    onSuccess: () => {
+      toast.success("Conversation deleted");
+    },
+    onError: (err: Error, _value, context) => {
+      if (context?.previousChats) queryClient.setQueryData(["chats"], context.previousChats);
+      toast.error(err.message || "Couldn't delete the conversation");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["chats"] });
     },
   });
 
@@ -233,11 +300,9 @@ export function ChatWindow({ chatId }: { chatId: string }) {
       body: { chatId, modelId: selectedModel },
     }),
     onFinish: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["chats"] }),
-        queryClient.invalidateQueries({ queryKey: ["chat", chatId] }),
-        queryClient.invalidateQueries({ queryKey: ["messages", chatId] }),
-      ]);
+      queryClient.invalidateQueries({ queryKey: ["chats"] });
+      queryClient.invalidateQueries({ queryKey: ["chat", chatId] });
+      await queryClient.invalidateQueries({ queryKey: ["messages", chatId] });
       const data = queryClient.getQueryData<Awaited<ReturnType<typeof getMessagesAction>>>([
         "messages",
         chatId,
@@ -265,26 +330,53 @@ export function ChatWindow({ chatId }: { chatId: string }) {
       return;
     }
     if (!models || models.length === 0) return;
+    const fallback = pickDefaultModelId(models.map((model) => model.id));
+    if (!fallback) return;
     modelInitializedForChat.current = chatId;
-    setSelectedModel(models[0].id);
-    saveModelPreference(models[0].id);
+    setSelectedModel(fallback);
+    saveModelPreference(fallback);
   }, [isChatFetched, currentChat?.model, chatId, models]);
 
   useEffect(() => {
     if (!dbMessages) return;
     if (hydratedChatId.current === chatId) return;
     if (status === "submitted" || status === "streaming") return;
+    if (peekInitialMessage(chatId)) return;
     setMessages(mapDbMessagesToUiMessages(dbMessages));
     hydratedChatId.current = chatId;
   }, [dbMessages, chatId, status, setMessages]);
 
   useEffect(() => {
-    if (hydratedChatId.current !== chatId || !selectedModel) return;
-    const initialMsg = sessionStorage.getItem("initial_message");
-    if (!initialMsg) return;
-    sessionStorage.removeItem("initial_message");
-    sendMessage({ text: initialMsg });
-  }, [sendMessage, selectedModel, chatId, dbMessages]);
+    if (!selectedModel || !peekInitialMessage(chatId)) return;
+    let cancelled = false;
+    waitForChatCreate(chatId)
+      .then(() => {
+        if (cancelled || !allowInitialSend.current) return;
+        const text = takeInitialMessage(chatId);
+        if (!text || !allowInitialSend.current) return;
+        sendMessage({ text });
+      })
+      .catch(() => {
+        // Starting the chat failed. The home page already left this route.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [chatId, selectedModel, sendMessage]);
+
+  useEffect(() => {
+    if (currentChat?.title !== DEFAULT_CHAT_TITLE) return;
+    if (!dbMessages || dbMessages.length === 0) return;
+    if (status === "submitted" || status === "streaming") return;
+    let attempts = 0;
+    const timer = setInterval(() => {
+      attempts += 1;
+      queryClient.invalidateQueries({ queryKey: ["chat", chatId] });
+      queryClient.invalidateQueries({ queryKey: ["chats"] });
+      if (attempts >= 6) clearInterval(timer);
+    }, 1500);
+    return () => clearInterval(timer);
+  }, [currentChat?.title, dbMessages, status, chatId, queryClient]);
 
   function handleModelChange(modelId: string) {
     modelInitializedForChat.current = chatId;
@@ -448,6 +540,12 @@ export function ChatWindow({ chatId }: { chatId: string }) {
   };
 
   const isLoading = status === "submitted" || status === "streaming";
+  const pendingText = peekInitialMessage(chatId);
+  const visibleMessages =
+    messages.length > 0 || !pendingText
+      ? messages
+      : [{ id: `pending-${chatId}`, role: "user", parts: [{ type: "text", text: pendingText }] }];
+  const showThinking = isLoading || (Boolean(pendingText) && messages.length === 0);
 
   return (
     <div className="flex flex-col h-full w-full bg-background relative overflow-hidden">
@@ -598,14 +696,14 @@ export function ChatWindow({ chatId }: { chatId: string }) {
               Try again
             </Button>
           </div>
-        ) : isFetching && messages.length === 0 ? (
+        ) : isFetching && visibleMessages.length === 0 ? (
           <div className="h-full flex items-center justify-center absolute inset-0">
             <Loading01Icon className="animate-spin h-5 w-5 text-muted-foreground/50" />
           </div>
         ) : (
           <MessageList 
-            messages={messages} 
-            isLoading={isLoading} 
+            messages={visibleMessages} 
+            isLoading={showThinking} 
             error={error} 
             branchPointMessageId={currentChat?.branchPointMessageId}
             onSwitchVersion={handleSwitchVersion}
@@ -655,8 +753,12 @@ export function ChatWindow({ chatId }: { chatId: string }) {
                 sendMessage({ text: input });
                 setInput("");
               }}
-              isLoading={isLoading}
-              onStop={stop}
+              isLoading={showThinking}
+              onStop={() => {
+                allowInitialSend.current = false;
+                takeInitialMessage(chatId);
+                stop();
+              }}
               placeholder={hasNoApiKey ? "Add an API Key in Settings to continue..." : "Ask Anything"}
               className="shadow-none border-none bg-transparent"
               modelSelector={<ModelSelector value={selectedModel} onChange={handleModelChange} autoSelect={false} />}

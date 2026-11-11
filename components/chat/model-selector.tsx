@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getAvailableModelsAction } from "@/app/actions/models";
-import { saveModelPreference } from "@/lib/chat/model-preference";
+import { saveModelPreference, pickDefaultModelId } from "@/lib/chat/model-preference";
 import { useEffect } from "react";
 import Image from "next/image";
 import { SparklesIcon, CheckmarkBadge01Icon, Key01Icon } from "hugeicons-react";
@@ -24,19 +24,37 @@ interface ModelSelectorProps {
 }
 
 export function ModelSelector({ value, onChange, autoSelect = true }: ModelSelectorProps) {
-  const { data: models } = useQuery({
+  const { data: models, isPending } = useQuery({
     queryKey: ["available-models"],
     queryFn: () => getAvailableModelsAction(),
+    staleTime: 5 * 60 * 1000,
   });
 
   // Automatically set a default value if not set and models are loaded
   useEffect(() => {
     if (!autoSelect || !models || models.length === 0 || value) return;
     const savedModel = localStorage.getItem("mentis_selected_model");
-    const next = savedModel && models.some((m) => m.id === savedModel) ? savedModel : models[0].id;
+    const next =
+      savedModel && models.some((m) => m.id === savedModel)
+        ? savedModel
+        : pickDefaultModelId(models.map((m) => m.id));
+    if (!next) return;
     saveModelPreference(next);
     onChange(next);
   }, [autoSelect, models, value, onChange]);
+
+  if (isPending) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled
+        className="h-8 px-3 rounded-xl text-muted-foreground text-[12.5px] font-medium"
+      >
+        Loading…
+      </Button>
+    );
+  }
 
   if (!models || models.length === 0) {
     return (

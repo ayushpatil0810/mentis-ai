@@ -1,4 +1,5 @@
 import { streamText, isStepCount, createUIMessageStreamResponse, toUIMessageStream } from "ai";
+import { after } from "next/server";
 import { requireAuth } from "@/lib/auth/auth-utils";
 import * as messageService from "@/lib/services/message";
 import * as chatService from "@/lib/services/chat";
@@ -9,6 +10,7 @@ import { z } from "zod";
 import { getTools } from "@/server/tools/registry";
 import { generateTitle } from "@/server/tools/title-generator";
 import { DEFAULT_CHAT_TITLE } from "@/lib/chat/title";
+import { chatReasoningLevel } from "@/lib/ai/chat-reasoning";
 import { buildSystemPrompt } from "@/server/prompts/builder";
 import { trimDbMessages, compressMessageHistory } from "@/lib/tools/history-utils";
 import { analyzePromptTokens } from "@/server/prompts/analyzer";
@@ -41,6 +43,26 @@ export async function POST(req: Request) {
     // Apply rate limit for AI generation (e.g., 20 messages per minute)
     await rateLimit(`chat:${user.id}`, 20, 60000);
 
+    let targetProviderName = "openai";
+    let targetModelName = "gpt-4o-mini";
+
+    if (modelId && typeof modelId === "string") {
+      const parts = modelId.split("/");
+      if (parts.length >= 2) {
+        targetProviderName = parts[0];
+        targetModelName = parts.slice(1).join("/");
+      }
+    }
+
+    if (targetProviderName === "default") {
+      targetProviderName = "openai";
+    }
+
+    const storedModelId = `${targetProviderName}/${targetModelName}`;
+    // Key lookup overlaps the chat read and the user-message insert.
+    const providerPromise = getProvider(user.id, targetProviderName);
+    const chatObj = await chatService.getChatById(user.id, chatId);
+
     let latestUserMsgContent = "";
 
     // 1. If not retrying, save the user's new message to the database
@@ -60,15 +82,16 @@ export async function POST(req: Request) {
       
       latestUserMsgContent = content;
 
-      await messageService.createMessage(user.id, {
-        chatId,
+      await messageService.createMessages(user.id, chatId, [{
         role: "user",
         content: content,
-      });
+      }], { skipOwnershipCheck: true });
     }
 
     // 2. Load the complete trusted conversation history from the database
-    const dbMessages = await messageService.getMessagesByChatId(user.id, chatId);
+    const dbMessages = await messageService.getMessagesByChatId(user.id, chatId, {
+      skipOwnershipCheck: true,
+    });
 
     // Filter context if retrying an assistant response
     let contextDbMessages = dbMessages;
@@ -110,39 +133,26 @@ export async function POST(req: Request) {
       };
     });
 
-    // 4. Resolve the correct provider and model based on modelId
-    let targetProviderName = "openai";
-    let targetModelName = "gpt-4o-mini";
-    
-    if (modelId && typeof modelId === "string") {
-      const parts = modelId.split("/");
-      if (parts.length >= 2) {
-        targetProviderName = parts[0];
-        targetModelName = parts.slice(1).join("/"); 
-      }
-    }
-    
-    if (targetProviderName === "default") {
-      targetProviderName = "openai";
-    }
-
-    const provider = await getProvider(user.id, targetProviderName);
-    const storedModelId = `${targetProviderName}/${targetModelName}`;
+    const provider = await providerPromise;
     const tools = getTools({ userId: user.id });
 
-    // Load user custom prompt if available
-    const chatObj = await chatService.getChatById(user.id, chatId).catch(() => null);
-    
     let systemPrompt = buildSystemPrompt({ provider: targetProviderName });
     
-    if (chatObj?.systemPrompt) {
+    if (chatObj.systemPrompt) {
       systemPrompt = `${systemPrompt}\n\n# User-defined Custom Instructions\n${chatObj.systemPrompt}`;
     }
 
-    if (chatObj && chatObj.model !== storedModelId) {
-      await chatService.updateChat(user.id, chatId, { model: storedModelId }).catch((err) => {
-        logger.error("Failed to store chat model", err);
-      });
+    if (chatObj.model !== storedModelId) {
+      const modelUpdate = chatService
+        .updateChat(user.id, chatId, { model: storedModelId })
+        .catch((err) => {
+          logger.error("Failed to store chat model", err);
+        });
+      try {
+        after(modelUpdate);
+      } catch (err) {
+        logger.error("Failed to schedule chat model update", err);
+      }
     }
 
     const titleUserText = (
@@ -151,9 +161,20 @@ export async function POST(req: Request) {
       ""
     ).trim();
     // Retry on later turns, including after a stopped or failed first reply,
-    // until a real title has been stored.
+    // until a real title has been stored. The model call runs alongside the
+    // reply so the stream can close when the answer is saved.
     const shouldGenerateTitle =
-      chatObj?.title === DEFAULT_CHAT_TITLE && titleUserText.length > 0;
+      chatObj.title === DEFAULT_CHAT_TITLE && titleUserText.length > 0;
+    const titlePromise = shouldGenerateTitle
+      ? generateTitle(
+          chatId,
+          user.id,
+          titleUserText,
+          "",
+          targetProviderName,
+          targetModelName,
+        )
+      : null;
 
     // Run dynamic runtime token analysis
     analyzePromptTokens({
@@ -163,12 +184,15 @@ export async function POST(req: Request) {
     });
 
     // 5. Stream the AI response
+    const reasoning = chatReasoningLevel(targetProviderName, targetModelName);
+
     const result = streamText({
       model: provider(targetModelName),
       messages: coreMessages,
       system: systemPrompt,
       tools,
       stopWhen: isStepCount(5),
+      ...(reasoning ? { reasoning } : {}),
       onFinish: async (event) => {
         const latencyMs = Date.now() - startTime;
         const promptTokens = event.usage?.inputTokens || 0;
@@ -213,49 +237,44 @@ export async function POST(req: Request) {
           -1
         );
 
-        // 6. Persist all generated messages (assistant replies and tool results) to the database
-        if (responseMsgs.length > 0) {
-          for (let msgIdx = 0; msgIdx < responseMsgs.length; msgIdx++) {
-            const msg = responseMsgs[msgIdx];
-            // Only the final assistant message participates in version grouping.
-            const isFinalAssistant = msg.role === "assistant" && msgIdx === lastAssistantIndex;
-            await messageService.createMessage(user.id, {
-              chatId,
-              role: msg.role,
-              content: typeof msg.content === "string" ? msg.content : "",
-              parts: typeof msg.content !== "string" ? msg.content : undefined,
-              status: "complete",
-              versionGroupId: isFinalAssistant ? targetVersionGroupId : undefined,
-              isActiveVersion: isFinalAssistant ? true : undefined,
-              metadata,
-            });
-          }
-        } else {
-          // Fallback if responseMessages is empty or undefined
-          await messageService.createMessage(user.id, {
-            chatId,
-            role: "assistant",
-            content: event.text,
-            status: "complete",
-            versionGroupId: targetVersionGroupId,
-            isActiveVersion: true,
-            metadata,
-          });
-        }
+        const rows =
+          responseMsgs.length > 0
+            ? responseMsgs.map((msg, msgIdx) => {
+                const isFinalAssistant = msg.role === "assistant" && msgIdx === lastAssistantIndex;
+                return {
+                  role: msg.role,
+                  content: typeof msg.content === "string" ? msg.content : "",
+                  parts: typeof msg.content !== "string" ? msg.content : undefined,
+                  status: "complete" as const,
+                  versionGroupId: isFinalAssistant ? targetVersionGroupId : undefined,
+                  isActiveVersion: isFinalAssistant ? true : undefined,
+                  metadata,
+                };
+              })
+            : [
+                {
+                  role: "assistant" as const,
+                  content: event.text,
+                  status: "complete" as const,
+                  versionGroupId: targetVersionGroupId,
+                  isActiveVersion: true,
+                  metadata,
+                },
+              ];
 
-        // 7. Title the chat before the stream closes so the client refetch sees it.
-        if (shouldGenerateTitle) {
-          await generateTitle(
-            chatId,
-            user.id,
-            titleUserText,
-            event.text || "",
-            targetProviderName,
-            targetModelName,
-          );
-        }
+        await messageService.createMessages(user.id, chatId, rows, {
+          skipOwnershipCheck: true,
+        });
       },
     });
+
+    if (titlePromise) {
+      try {
+        after(titlePromise);
+      } catch (err) {
+        logger.error("Failed to schedule chat title", err);
+      }
+    }
 
     return createUIMessageStreamResponse({
       stream: toUIMessageStream({
