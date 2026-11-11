@@ -4,6 +4,7 @@ import { chat, message } from "../db/schema";
 import { ulid } from "ulid";
 import { z } from "zod";
 import { NotFoundError, AuthError } from "../utils/errors";
+import { DEFAULT_CHAT_TITLE } from "../chat/title";
 
 const createChatSchema = z.object({
   title: z.string().optional(),
@@ -20,7 +21,7 @@ export async function createChat(userId: string, data: z.infer<typeof createChat
   const [newChat] = await db.insert(chat).values({
     id,
     userId,
-    title: parsed.title || "New Chat",
+    title: parsed.title || DEFAULT_CHAT_TITLE,
     model: parsed.model,
     systemPrompt: parsed.systemPrompt,
   }).returning();
@@ -76,6 +77,27 @@ export async function updateChat(userId: string, chatId: string, data: z.infer<t
   }
   
   return updatedChat;
+}
+
+/** Set a generated title only when the chat is still using the default title. */
+export async function updateChatTitleIfDefault(userId: string, chatId: string, title: string) {
+  if (!userId) throw new AuthError();
+
+  const parsedTitle = z.string().min(1).parse(title);
+
+  const [updatedChat] = await db
+    .update(chat)
+    .set({ title: parsedTitle })
+    .where(
+      and(
+        eq(chat.id, chatId),
+        eq(chat.userId, userId),
+        eq(chat.title, DEFAULT_CHAT_TITLE),
+      ),
+    )
+    .returning();
+
+  return updatedChat ?? null;
 }
 
 export async function deleteChat(userId: string, chatId: string) {

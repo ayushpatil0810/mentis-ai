@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createChatAction } from "@/app/actions/chat";
+import { DEFAULT_CHAT_TITLE } from "@/lib/chat/title";
 import { getAvailableModelsAction } from "@/app/actions/models";
 import { ChatInput } from "@/components/chat/chat-input";
 import { ModelSelector } from "@/components/chat/model-selector";
@@ -32,7 +33,7 @@ export default function NewChatPage() {
 
   const createChatMutation = useMutation({
     mutationFn: async (messageContent: string) => {
-      const response = await createChatAction({ title: "New Chat" });
+      const response = await createChatAction({ title: DEFAULT_CHAT_TITLE });
       if (!response.success) {
         throw new Error(response.error);
       }
